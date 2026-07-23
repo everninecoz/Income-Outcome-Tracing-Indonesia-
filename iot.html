@@ -414,7 +414,7 @@
       <span class="version-badge" id="userBadge" hidden></span>
       <span class="save-status" id="saveStatus"></span>
       <button class="version-link" id="toggleData">cadangan data</button>
-      <button class="version-link" id="toggleChangelog">riwayat versi</button>
+      <a class="version-link" href="https://github.com/everninecoz/Income-Outcome-Tracing-Indonesia-/commits/main" target="_blank" rel="noopener noreferrer">riwayat versi ↗</a>
       <button class="version-link" id="toggleDarkMode">&#9789; gelap</button>
       <div class="menu-wrap">
         <button class="menu-btn" id="toggleMenu">Menu &#9662;</button>
@@ -665,9 +665,7 @@
   const newAccNameEl = document.getElementById('newAccName');
   const newAccTypeEl = document.getElementById('newAccType');
   const addAccBtn = document.getElementById('addAccBtn');
-  const toggleChangelogBtn = document.getElementById('toggleChangelog');
   const toggleDarkModeBtn = document.getElementById('toggleDarkMode');
-  const changelogPanelEl = document.getElementById('changelogPanel');
   const toggleDataBtn = document.getElementById('toggleData');
   const dataPanelEl = document.getElementById('dataPanel');
   const exportDataBtn = document.getElementById('exportDataBtn');
@@ -2210,14 +2208,13 @@
 
   closeAccountsModalBtn.addEventListener('click', () => { accountsModalOverlayEl.classList.remove('open'); });
   accountsModalOverlayEl.addEventListener('click', (e) => { if(e.target === accountsModalOverlayEl) accountsModalOverlayEl.classList.remove('open'); });
-  toggleChangelogBtn.addEventListener('click', () => { changelogPanelEl.classList.toggle('open'); dataPanelEl.classList.remove('open'); });
   toggleDarkModeBtn.addEventListener('click', () => {
     settings.darkMode = !settings.darkMode;
     document.body.classList.toggle('dark', settings.darkMode);
     toggleDarkModeBtn.innerHTML = settings.darkMode ? '&#9788; terang' : '&#9789; gelap';
     saveSettings();
   });
-  toggleDataBtn.addEventListener('click', () => { dataPanelEl.classList.toggle('open'); changelogPanelEl.classList.remove('open'); });
+  toggleDataBtn.addEventListener('click', () => { dataPanelEl.classList.toggle('open'); });
   toggleBudgetBtn.addEventListener('click', () => { budgetPanelEl.classList.toggle('open'); });
   toggleMenuBtn.addEventListener('click', (e) => {
     e.stopPropagation();
@@ -2251,9 +2248,6 @@
     if(!menuDropdownEl.contains(e.target) && e.target !== toggleMenuBtn){
       menuDropdownEl.classList.remove('open');
     }
-    if(!changelogPanelEl.contains(e.target) && e.target !== toggleChangelogBtn){
-      changelogPanelEl.classList.remove('open');
-    }
     if(!dataPanelEl.contains(e.target) && e.target !== toggleDataBtn){
       dataPanelEl.classList.remove('open');
     }
@@ -2261,7 +2255,6 @@
   document.addEventListener('keydown', (e) => {
     if(e.key !== 'Escape') return;
     menuDropdownEl.classList.remove('open');
-    changelogPanelEl.classList.remove('open');
     dataPanelEl.classList.remove('open');
     splitModalOverlayEl.classList.remove('open');
     goalsModalOverlayEl.classList.remove('open');
@@ -2349,5 +2342,4 @@
 
 </body>
 </html>
-
 
