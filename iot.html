@@ -273,6 +273,10 @@
     width:100%; height:32px; font-family:'IBM Plex Mono', monospace; font-size:12.5px;
     border:1px solid var(--line); border-radius:4px; padding:0 8px; background:rgba(255,255,255,0.5); color:var(--ink);
   }
+  .budget-form-grid input[type=text], .budget-form-grid input[type=date], .budget-form-grid select{
+    width:100%; height:32px; font-family:'Space Grotesk', sans-serif; font-size:12.5px;
+    border:1px solid var(--line); border-radius:4px; padding:0 8px; background:rgba(255,255,255,0.5); color:var(--ink);
+  }
   .budget-panel .cat-title{ font-size:10.5px; letter-spacing:1px; text-transform:uppercase; color:var(--ink-soft); margin:14px 0 8px; }
   .budget-panel button.save{ background:var(--ink); color:var(--paper); border:none; border-radius:4px; font-size:12px; padding:9px 14px; cursor:pointer; margin-top:14px; width:100%; }
 
@@ -286,6 +290,18 @@
   .goals-empty .empty-icon{ font-size:24px; display:block; margin-bottom:8px; font-style:normal; opacity:0.5; }
   .goal-panel{ display:none; padding-top:14px; margin-top:14px; border-top:1px dashed var(--line); }
   .goal-panel.open{ display:block; }
+
+  .recurring-reminder{ margin-top:14px; padding-top:14px; border-top:1px dashed var(--line); }
+  .recurring-reminder[hidden]{ display:none; }
+  .recurring-due-item, .recurring-rule-item{ display:flex; align-items:center; justify-content:space-between; gap:10px; padding:9px 0; border-bottom:1px dotted var(--line); }
+  .recurring-due-item:last-child, .recurring-rule-item:last-child{ border-bottom:none; }
+  .recurring-main{ min-width:0; }
+  .recurring-name{ font-size:12.5px; font-weight:600; }
+  .recurring-meta{ font-family:'IBM Plex Mono', monospace; font-size:10.5px; color:var(--ink-soft); margin-top:2px; }
+  .recurring-actions{ display:flex; gap:6px; flex:0 0 auto; }
+  .recurring-actions button{ border-radius:4px; font-size:11px; padding:6px 9px; cursor:pointer; }
+  .recurring-record-btn{ border:none; background:var(--stamp); color:var(--paper); }
+  .recurring-empty{ color:var(--ink-soft); font-size:12px; font-style:italic; padding:8px 0 14px; }
 
   .modal-overlay{ display:flex; position:fixed; inset:0; background:rgba(32,43,36,0.55); z-index:50; align-items:center; justify-content:center; padding:20px;
     opacity:0; visibility:hidden; transition: opacity 0.2s var(--ease), visibility 0s linear 0.2s; }
@@ -369,8 +385,10 @@
   body.dark .budget-form-grid input:focus, body.dark .split-row input:focus,
   body.dark .split-pct-row input:focus, body.dark .add-account-form input:focus{ background:#101612; border-color:var(--stamp); }
   body.dark .entry{ background:#202820; border-bottom-color:#465044; }
+  body.dark .budget-form-grid select{ background:#151B17; color:#F7F4EB; border-color:#536050; }
   body.dark .entry:hover{ background:#2A3429; }
   body.dark .entry .desc{ color:#F7F4EB; }
+  body.dark .recurring-due-item, body.dark .recurring-rule-item{ background:#202820; border-bottom-color:#465044; }
   body.dark .tag.acc{ background:#343F34; color:#CDD6C9; }
   .login-box button{ width:100%; background:var(--ink); color:var(--paper); border:none; border-radius:var(--r-sm); font-size:13px; font-weight:600; padding:11px 12px; cursor:pointer; }
   .login-box button:hover{ background:var(--stamp); }
@@ -431,7 +449,7 @@
     </div>
     <div class="top-bar-right">
       <span class="date-text" id="todayDate">memuat...</span>
-      <span class="version-badge" id="versionBadge">v1.11</span>
+      <span class="version-badge" id="versionBadge">v1.12</span>
       <span class="version-badge" id="userBadge" hidden></span>
       <span class="save-status" id="saveStatus"></span>
       <button class="version-link" id="toggleData">cadangan data</button>
@@ -442,6 +460,7 @@
         <div class="menu-dropdown" id="menuDropdown">
           <button data-open="accounts">Kelola Akun</button>
           <button data-open="goals">Rencana Dana</button>
+          <button data-open="recurring">Transaksi Berulang</button>
           <button data-open="split">Splitbill Calculator</button>
           <button data-open="switch" id="switchAccountBtn">Ganti Akun / Keluar</button>
         </div>
@@ -519,6 +538,10 @@
             <div class="cq" id="clarifyQuestion"></div>
             <div class="options" id="clarifyOptions"></div>
             <button class="cancel" id="clarifyCancel">Batal</button>
+          </div>
+          <div class="recurring-reminder" id="recurringReminder" hidden>
+            <div class="section-label"><span>Pengingat Jatuh Tempo</span></div>
+            <div id="recurringDueList"></div>
           </div>
         </div>
       </div>
@@ -644,6 +667,26 @@
     </div>
   </div>
 
+  <div class="modal-overlay" id="recurringModalOverlay" role="dialog" aria-modal="true" aria-hidden="true" aria-labelledby="recurringModalTitle">
+    <div class="modal-box">
+      <button class="modal-close" id="closeRecurringModal" aria-label="Tutup dialog transaksi berulang">&times;</button>
+      <div class="modal-title" id="recurringModalTitle">Transaksi Berulang</div>
+      <div class="modal-subtitle">Buat pengingat bulanan untuk tagihan atau pemasukan rutin. IOT tidak akan mencatat otomatis; kamu tetap menekan tombol Catat saat jatuh tempo.</div>
+      <div id="recurringRulesList"></div>
+      <div class="goal-panel open">
+        <div class="budget-form-grid">
+          <input class="full-row" type="text" id="newRecurringDesc" placeholder="Contoh: Internet rumah">
+          <input class="full-row" type="number" id="newRecurringAmount" placeholder="Nominal (Rp)" min="1">
+          <select class="full-row" id="newRecurringType"><option value="outcome">Pengeluaran</option><option value="income">Pemasukan</option></select>
+          <input class="full-row" type="text" id="newRecurringCategory" placeholder="Kategori, contoh: Tagihan">
+          <select class="full-row" id="newRecurringAccount"></select>
+          <input class="full-row" type="date" id="newRecurringDue">
+        </div>
+        <button class="save" id="addRecurringBtn">Tambah Pengingat Bulanan</button>
+      </div>
+    </div>
+  </div>
+
   <div class="app-footer">IOT â€” Income Outcome Tracing &middot; oleh <span class="stamp-name">Scalista</span></div>
 </div>
 
@@ -656,9 +699,11 @@
   const BUDGET_KEY = 'budget';
   const GOALS_KEY = 'goals';
   const SETTINGS_KEY = 'settings';
+  const RECURRING_KEY = 'recurring_rules';
   let accounts = [];
   let entries = [];
   let goals = [];
+  let recurringRules = [];
   let budget = { monthly: null, categories: {} };
   let settings = { darkMode: true, budgetWarnPct: 70 };
   let pending = null;
@@ -737,6 +782,18 @@
   let editingEntryId = null;
   const splitModalOverlayEl = document.getElementById('splitModalOverlay');
   const closeSplitModalBtn = document.getElementById('closeSplitModal');
+  const recurringModalOverlayEl = document.getElementById('recurringModalOverlay');
+  const closeRecurringModalBtn = document.getElementById('closeRecurringModal');
+  const recurringReminderEl = document.getElementById('recurringReminder');
+  const recurringDueListEl = document.getElementById('recurringDueList');
+  const recurringRulesListEl = document.getElementById('recurringRulesList');
+  const newRecurringDescEl = document.getElementById('newRecurringDesc');
+  const newRecurringAmountEl = document.getElementById('newRecurringAmount');
+  const newRecurringTypeEl = document.getElementById('newRecurringType');
+  const newRecurringCategoryEl = document.getElementById('newRecurringCategory');
+  const newRecurringAccountEl = document.getElementById('newRecurringAccount');
+  const newRecurringDueEl = document.getElementById('newRecurringDue');
+  const addRecurringBtn = document.getElementById('addRecurringBtn');
   let activeModalEl = null;
   let modalTriggerEl = null;
 
@@ -1434,6 +1491,112 @@
     });
   }
 
+  function localDateString(date = new Date()){
+    return date.getFullYear() + '-' + String(date.getMonth() + 1).padStart(2, '0') + '-' + String(date.getDate()).padStart(2, '0');
+  }
+
+  function advanceMonthlyDue(dateString){
+    const parts = String(dateString).split('-').map(Number);
+    if(parts.length !== 3 || parts.some(n => !Number.isInteger(n))) return localDateString();
+    const next = new Date(parts[0], parts[1], 1);
+    const lastDay = new Date(next.getFullYear(), next.getMonth() + 1, 0).getDate();
+    return next.getFullYear() + '-' + String(next.getMonth() + 1).padStart(2, '0') + '-' + String(Math.min(parts[2], lastDay)).padStart(2, '0');
+  }
+
+  function isValidRecurringRule(rule){
+    return !!rule && isValidImportedId(rule.id, 'rr_') && typeof rule.desc === 'string' && rule.desc.trim().length > 0 &&
+      typeof rule.amount === 'number' && Number.isFinite(rule.amount) && rule.amount > 0 &&
+      ['income', 'outcome'].includes(rule.type) && typeof rule.category === 'string' && rule.category.trim().length > 0 &&
+      typeof rule.accountId === 'string' && accounts.some(a => a.id === rule.accountId) && /^\d{4}-\d{2}-\d{2}$/.test(String(rule.nextDue));
+  }
+
+  function renderRecurringAccounts(){
+    const selected = newRecurringAccountEl.value;
+    newRecurringAccountEl.innerHTML = '';
+    accounts.forEach(account => appendOption(newRecurringAccountEl, account.id, account.name));
+    if(accounts.some(a => a.id === selected)) newRecurringAccountEl.value = selected;
+  }
+
+  function renderRecurringRules(){
+    renderRecurringAccounts();
+    recurringRulesListEl.innerHTML = '';
+    if(recurringRules.length === 0){
+      recurringRulesListEl.innerHTML = '<div class="recurring-empty">Belum ada pengingat rutin.</div>';
+      return;
+    }
+    [...recurringRules].sort((a,b) => a.nextDue.localeCompare(b.nextDue)).forEach(rule => {
+      const item = document.createElement('div');
+      item.className = 'recurring-rule-item';
+      const main = document.createElement('div'); main.className = 'recurring-main';
+      const name = document.createElement('div'); name.className = 'recurring-name'; name.textContent = rule.desc;
+      const meta = document.createElement('div'); meta.className = 'recurring-meta';
+      const account = accounts.find(a => a.id === rule.accountId);
+      meta.textContent = (rule.type === 'income' ? '+ ' : '- ') + formatRupiah(rule.amount) + ' · ' + rule.category + ' · ' + (account ? account.name : 'Akun tidak tersedia') + ' · berikutnya ' + rule.nextDue;
+      main.append(name, meta);
+      const actions = document.createElement('div'); actions.className = 'recurring-actions';
+      const del = document.createElement('button'); del.className = 'del-btn'; del.dataset.recurringId = rule.id; del.textContent = 'HAPUS';
+      actions.appendChild(del); item.append(main, actions); recurringRulesListEl.appendChild(item);
+    });
+  }
+
+  function isRuleAlreadyRecorded(rule){
+    return entries.some(entry => entry.recurringRuleId === rule.id && entry.recurringDue === rule.nextDue);
+  }
+
+  function renderRecurringReminder(){
+    renderRecurringRules();
+    const due = recurringRules.filter(rule => rule.nextDue <= localDateString() && !isRuleAlreadyRecorded(rule));
+    recurringDueListEl.innerHTML = '';
+    recurringReminderEl.hidden = due.length === 0;
+    due.forEach(rule => {
+      const item = document.createElement('div'); item.className = 'recurring-due-item';
+      const main = document.createElement('div'); main.className = 'recurring-main';
+      const name = document.createElement('div'); name.className = 'recurring-name'; name.textContent = rule.desc;
+      const meta = document.createElement('div'); meta.className = 'recurring-meta'; meta.textContent = (rule.type === 'income' ? 'Pemasukan ' : 'Pengeluaran ') + formatRupiah(rule.amount) + ' · jatuh tempo ' + rule.nextDue;
+      main.append(name, meta);
+      const button = document.createElement('button'); button.className = 'recurring-record-btn'; button.dataset.recurringRecord = rule.id; button.textContent = 'Catat';
+      item.append(main, button); recurringDueListEl.appendChild(item);
+    });
+  }
+
+  async function saveRecurringRules(){
+    if(isGuest) return true;
+    try{ await kvSet(RECURRING_KEY, recurringRules); return true; }
+    catch(err){
+      console.error('Gagal menyimpan transaksi berulang:', err);
+      setFeedback('Gagal menyimpan pengingat rutin. Periksa koneksi lalu coba lagi.', 'hero-feedback outcome');
+      return false;
+    }
+  }
+
+  async function addRecurringRule(){
+    const desc = newRecurringDescEl.value.trim();
+    const amount = Number(newRecurringAmountEl.value);
+    const category = newRecurringCategoryEl.value.trim();
+    const accountId = newRecurringAccountEl.value;
+    const nextDue = newRecurringDueEl.value;
+    if(!desc || !Number.isFinite(amount) || amount <= 0 || !category || !accountId || !nextDue){
+      setFeedback('Lengkapi nama, nominal, kategori, akun, dan tanggal jatuh tempo.', 'hero-feedback outcome');
+      return;
+    }
+    const rule = { id: uid('rr_'), desc, amount: Math.round(amount), type: newRecurringTypeEl.value, category, accountId, nextDue };
+    recurringRules.push(rule);
+    if(!(await saveRecurringRules())){ recurringRules = recurringRules.filter(item => item.id !== rule.id); return; }
+    newRecurringDescEl.value = ''; newRecurringAmountEl.value = ''; newRecurringCategoryEl.value = ''; newRecurringDueEl.value = '';
+    renderRecurringReminder();
+    setFeedback('Pengingat bulanan ditambahkan.', 'hero-feedback payment');
+  }
+
+  async function recordRecurringRule(id){
+    const rule = recurringRules.find(item => item.id === id);
+    if(!rule || isRuleAlreadyRecorded(rule)) return;
+    const recorded = await finalizeEntry({ desc: rule.desc, amount: rule.amount, type: rule.type, category: rule.category, accountId: rule.accountId, recurringRuleId: rule.id, recurringDue: rule.nextDue });
+    if(!recorded) return;
+    rule.nextDue = advanceMonthlyDue(rule.nextDue);
+    await saveRecurringRules();
+    renderRecurringReminder();
+  }
+
   function computeAccountRunningBalances(accountId){
     const relevant = entries.filter(e => e.accountId === accountId || e.toAccountId === accountId).sort((a,b) => a.ts - b.ts);
     const map = {};
@@ -1587,6 +1750,7 @@
     qsTransaksiEl.textContent = entries.length;
     qsAkunEl.textContent = accounts.length;
     qsTujuanEl.textContent = goals.length;
+    renderRecurringReminder();
   }
 
   async function saveAccounts(){
@@ -1674,6 +1838,21 @@
     }
 
     try{
+      const recurringResult = await kvGet(RECURRING_KEY);
+      recurringRules = Array.isArray(recurringResult) ? recurringResult.filter(isValidRecurringRule) : [];
+    }catch(err){
+      recurringRules = [];
+    }
+    let recurringMigrated = false;
+    recurringRules.forEach(rule => {
+      while(isRuleAlreadyRecorded(rule)){
+        rule.nextDue = advanceMonthlyDue(rule.nextDue);
+        recurringMigrated = true;
+      }
+    });
+    if(recurringMigrated) await saveRecurringRules();
+
+    try{
       const settingsResult = await kvGet(SETTINGS_KEY);
       settings = settingsResult && typeof settingsResult === 'object' ? Object.assign({ darkMode: true, budgetWarnPct: 70 }, settingsResult) : { darkMode: true, budgetWarnPct: 70 };
     }catch(err){
@@ -1715,12 +1894,14 @@
     };
     if(parsed.toAccountId) entry.toAccountId = parsed.toAccountId;
     if(parsed.goalId) entry.goalId = parsed.goalId;
+    if(parsed.recurringRuleId) entry.recurringRuleId = parsed.recurringRuleId;
+    if(parsed.recurringDue) entry.recurringDue = parsed.recurringDue;
     entries.push(entry);
     const saved = await saveEntries();
     render();
     if(!saved){
       closeClarify();
-      return;
+      return false;
     }
     const accName = (accounts.find(a => a.id === parsed.accountId) || {}).name || '';
     if(entry.type === 'payment'){
@@ -1739,6 +1920,7 @@
       setFeedback((entry.type === 'income' ? 'Tercatat: +' : 'Tercatat: -') + formatRupiah(entry.amount) + ' \u00b7 ' + entry.category + (accName ? (' \u00b7 ' + accName) : ''), 'hero-feedback ' + entry.type);
     }
     closeClarify();
+    return true;
   }
 
   function openClarify(question, options){
@@ -2099,7 +2281,7 @@
 
   // ---- Export / Import backup ----
   function exportData(){
-    const payload = { accounts, entries, budget, goals, exportedAt: new Date().toISOString(), appVersion: 'v0.8' };
+    const payload = { accounts, entries, budget, goals, recurringRules, exportedAt: new Date().toISOString(), appVersion: 'v1.12' };
     const blob = new Blob([JSON.stringify(payload, null, 2)], { type: 'application/json' });
     const url = URL.createObjectURL(blob);
     const a = document.createElement('a');
@@ -2163,6 +2345,21 @@
       }
     }
 
+    if(payload.recurringRules !== undefined){
+      if(!Array.isArray(payload.recurringRules)) errors.push('Data "recurringRules" harus berupa daftar.');
+      else {
+        const recurringIds = new Set();
+        payload.recurringRules.forEach((rule, i) => {
+          if(!rule || !isValidImportedId(rule.id, 'rr_') || typeof rule.desc !== 'string' || !rule.desc.trim() ||
+             typeof rule.amount !== 'number' || rule.amount <= 0 || !['income', 'outcome'].includes(rule.type) ||
+             typeof rule.category !== 'string' || !rule.category.trim() || !accIds.has(rule.accountId) ||
+             typeof rule.nextDue !== 'string' || !/^\d{4}-\d{2}-\d{2}$/.test(rule.nextDue) || recurringIds.has(rule.id)){
+            errors.push('Pengingat rutin ke-' + (i+1) + ' formatnya tidak valid.');
+          } else recurringIds.add(rule.id);
+        });
+      }
+    }
+
     return errors;
   }
 
@@ -2187,19 +2384,21 @@
       }
       const ok = window.confirm('Impor data ini akan menimpa data yang ada sekarang. Lanjutkan?');
       if(!ok) return;
-      const previousState = { accounts, entries, budget, goals };
+      const previousState = { accounts, entries, budget, goals, recurringRules };
       accounts = Array.isArray(payload.accounts) && payload.accounts.length ? payload.accounts : defaultAccounts();
       entries = Array.isArray(payload.entries) ? payload.entries : [];
       budget = payload.budget && typeof payload.budget === 'object' ? payload.budget : { monthly: null, categories: {} };
       if(!budget.categories) budget.categories = {};
       goals = Array.isArray(payload.goals) ? payload.goals : [];
-      const saved = await Promise.all([saveAccounts(), saveEntries(), saveBudget(), saveGoals()]);
+      recurringRules = Array.isArray(payload.recurringRules) ? payload.recurringRules : [];
+      const saved = await Promise.all([saveAccounts(), saveEntries(), saveBudget(), saveGoals(), saveRecurringRules()]);
       if(!saved.every(Boolean)){
         accounts = previousState.accounts;
         entries = previousState.entries;
         budget = previousState.budget;
         goals = previousState.goals;
-        await Promise.all([saveAccounts(), saveEntries(), saveBudget(), saveGoals()]);
+        recurringRules = previousState.recurringRules;
+        await Promise.all([saveAccounts(), saveEntries(), saveBudget(), saveGoals(), saveRecurringRules()]);
         renderCatBudgetInputs();
         render();
         setFeedback('Impor gagal disimpan. Data sebelumnya tetap digunakan.', 'hero-feedback outcome');
@@ -2272,6 +2471,7 @@
     menuDropdownEl.classList.remove('open');
     if(which === 'accounts') openModal(accountsModalOverlayEl, toggleMenuBtn);
     if(which === 'goals') openModal(goalsModalOverlayEl, toggleMenuBtn);
+    if(which === 'recurring') openModal(recurringModalOverlayEl, toggleMenuBtn);
     if(which === 'split') openModal(splitModalOverlayEl, toggleMenuBtn);
     if(which === 'switch'){
       const ok = window.confirm('Keluar dari akun ini? Kamu akan diminta login ulang (data yang sudah tersimpan tidak hilang).');
@@ -2325,6 +2525,8 @@
   goalsModalOverlayEl.addEventListener('click', (e) => { if(e.target === goalsModalOverlayEl) closeModal(goalsModalOverlayEl); });
   closeSplitModalBtn.addEventListener('click', () => { closeModal(splitModalOverlayEl); });
   splitModalOverlayEl.addEventListener('click', (e) => { if(e.target === splitModalOverlayEl) closeModal(splitModalOverlayEl); });
+  closeRecurringModalBtn.addEventListener('click', () => { closeModal(recurringModalOverlayEl); });
+  recurringModalOverlayEl.addEventListener('click', (e) => { if(e.target === recurringModalOverlayEl) closeModal(recurringModalOverlayEl); });
 
   exportDataBtn.addEventListener('click', exportData);
   importDataInputEl.addEventListener('change', (e) => {
@@ -2343,6 +2545,20 @@
     if(btn) removeGoal(btn.getAttribute('data-goalid'));
   });
 
+  recurringDueListEl.addEventListener('click', (e) => {
+    const btn = e.target.closest('[data-recurring-record]');
+    if(btn) recordRecurringRule(btn.dataset.recurringRecord);
+  });
+  recurringRulesListEl.addEventListener('click', async (e) => {
+    const btn = e.target.closest('[data-recurring-id]');
+    if(!btn) return;
+    const rule = recurringRules.find(item => item.id === btn.dataset.recurringId);
+    if(!rule || !window.confirm('Hapus pengingat "' + rule.desc + '"?')) return;
+    recurringRules = recurringRules.filter(item => item.id !== rule.id);
+    if(!(await saveRecurringRules())){ recurringRules.push(rule); }
+    renderRecurringReminder();
+  });
+
   addAccBtn.addEventListener('click', () => {
     const name = newAccNameEl.value.trim();
     if(!name) return;
@@ -2359,6 +2575,10 @@
     newGoalNameEl.value = '';
     newGoalTargetEl.value = '';
     newGoalDateEl.value = '';
+  });
+  addRecurringBtn.addEventListener('click', addRecurringRule);
+  [newRecurringDescEl, newRecurringAmountEl, newRecurringCategoryEl, newRecurringDueEl].forEach(el => {
+    el.addEventListener('keydown', (e) => { if(e.key === 'Enter') addRecurringRule(); });
   });
 
   clarifyOptionsEl.addEventListener('click', (e) => {
