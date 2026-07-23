@@ -1,5 +1,14 @@
-# Income-Outcome-Tracing (Bahasa version only)
-Productivity tools untuk perhitungan pengeluaran dan pemasukan bulanan pribadi
+# Income Outcome Tracing Indonesia (IOT)
+
+IOT adalah aplikasi pelacak keuangan pribadi berbahasa Indonesia untuk mencatat pemasukan, pengeluaran, transfer antar akun, pembayaran tagihan, anggaran bulanan, serta target dana melalui input teks sederhana. Data dapat disimpan di Supabase sehingga tetap tersedia saat digunakan dari perangkat lain.
+
+## Fitur utama
+
+- Pencatatan transaksi cepat dari bahasa sehari-hari.
+- Akun tunai, debit, QRIS, dan kartu kredit.
+- Anggaran, target dana, split bill, filter, dan riwayat transaksi.
+- Dark mode sebagai tampilan awal dengan mode terang opsional.
+- Ekspor/impor backup JSON dan validasi data impor.
 
 ## Riwayat versi
 
