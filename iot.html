@@ -69,7 +69,7 @@
   .top-bar-right{ display:flex; align-items:center; gap:14px; flex-wrap:wrap; }
   .date-text{ font-family:'IBM Plex Mono', monospace; font-size:12px; color:var(--ink-soft); text-transform:capitalize; }
   .version-badge{ font-family:'IBM Plex Mono', monospace; font-size:10px; background:var(--stamp-bg); color:var(--stamp); padding:2px 8px; border-radius:10px; letter-spacing:0.5px; }
-  .save-status{ font-size:10.5px; font-family:'IBM Plex Mono', monospace; padding:2px 8px; border-radius:10px; display:none; align-items:center; gap:5px; }
+  .save-status{ font-size:10.5px; font-family:'IBM Plex Mono', monospace; padding:2px 8px; border-radius:10px; display:none; align-items:center; gap:5px; line-height:1.35; }
   .save-status.show{ display:inline-flex; }
   .save-status.saving{ background:var(--stamp-bg); color:var(--stamp); }
   .save-status.saved{ background:var(--income-bg); color:var(--income); }
@@ -129,6 +129,27 @@
 
   .dashboard-grid{ display:grid; grid-template-columns: 270px 1fr 310px; gap:20px; align-items:start; }
   @media (max-width: 980px){ .dashboard-grid{ grid-template-columns: 1fr; } .data-panel{ right:20px; width:280px; } }
+  @media (max-width: 560px){
+    html, body{ overflow-x:hidden; }
+    .app-shell{ padding:14px 12px 32px; }
+    .top-bar{ padding:14px; align-items:stretch; flex-direction:column; }
+    .brand-block{ gap:5px 10px; }
+    .top-bar-right{ width:100%; justify-content:space-between; gap:8px; }
+    .top-bar-right .save-status{ flex:1 0 100%; width:100%; min-height:28px; white-space:normal; }
+    .top-bar-right .menu-wrap{ margin-left:auto; }
+    .menu-btn{ min-height:40px; padding:8px 14px; }
+    .dashboard-grid, .col{ gap:16px; }
+    .card{ padding:16px; }
+    .hero-input-card{ padding-left:12px; }
+    .hero-input-card input[type=text]{ min-width:0; font-size:14px; }
+    .filter-bar{ flex-direction:column; gap:8px; }
+    .filter-bar > *{ width:100%; max-width:none; min-height:42px; }
+    .filter-bar button{ width:100%; }
+    .entry{ grid-template-columns:minmax(0, 1fr) auto; row-gap:6px; }
+    .entry .desc{ overflow-wrap:anywhere; }
+    .entry .void-btn{ min-height:34px; padding:5px 8px; }
+    .entry .amount{ grid-column:1; }
+  }
 
   .col{ display:flex; flex-direction:column; gap:20px; }
 
@@ -410,7 +431,7 @@
     </div>
     <div class="top-bar-right">
       <span class="date-text" id="todayDate">memuat...</span>
-      <span class="version-badge" id="versionBadge">v1.9</span>
+      <span class="version-badge" id="versionBadge">v1.11</span>
       <span class="version-badge" id="userBadge" hidden></span>
       <span class="save-status" id="saveStatus"></span>
       <button class="version-link" id="toggleData">cadangan data</button>
@@ -438,6 +459,7 @@
       <div class="cl-item"><span class="cl-ver">v1.7</span><div class="cl-note">Status simpan real-time (Menyimpan/Tersimpan/Gagal), konfirmasi hapus transaksi, edit transaksi (tanggal/deskripsi/nominal/kategori), filter bulan/akun/kategori + pencarian, mutasi saldo (saldo berjalan per akun), dan parser baru: "kemarin", "tanggal N", dan transfer antar akun.</div></div>
       <div class="cl-item"><span class="cl-ver">v1.8</span><div class="cl-note">Mode gelap menjadi tampilan awal. Impor data diperkuat: validasi ID/referensi, dukungan transfer, penolakan duplikasi, render input pengguna lebih aman, dan pemulihan data saat simpan impor gagal.</div></div>
       <div class="cl-item"><span class="cl-ver">v1.9</span><div class="cl-note">Kontras dark mode ditingkatkan untuk input, filter, formulir, dan riwayat transaksi agar teks lebih nyaman dibaca.</div></div>
+      <div class="cl-item"><span class="cl-ver">v1.11</span><div class="cl-note">Feedback transaksi tetap dekat input cepat, dan status simpan lebih mudah dibaca di layar kecil.</div></div>
     </div>
     <div class="data-panel" id="dataPanel">
       <p>Data tersimpan otomatis di database, terkunci ke akun username+password kamu â€” tetap ada meski di-refresh, ditutup, atau dibuka dari device lain. Ekspor/impor di bawah ini tetap berguna sebagai cadangan tambahan.</p>
@@ -492,7 +514,7 @@
             <button class="hero-send-btn" id="sendBtn" title="Kirim">&#8594;</button>
           </div>
           <div class="hero-hint">Enter untuk simpan. Coba: "kemarin makan 30rb", "transfer 100rb dari debit ke tunai", "gaji 5 juta tanggal 25"</div>
-          <div class="hero-feedback" id="feedback"></div>
+          <div class="hero-feedback" id="feedback" role="status" aria-live="polite" aria-atomic="true"></div>
           <div class="hero-clarify" id="clarify">
             <div class="cq" id="clarifyQuestion"></div>
             <div class="options" id="clarifyOptions"></div>
@@ -540,10 +562,10 @@
 
   </div>
 
-  <div class="modal-overlay" id="editEntryModalOverlay">
+  <div class="modal-overlay" id="editEntryModalOverlay" role="dialog" aria-modal="true" aria-hidden="true" aria-labelledby="editEntryModalTitle">
     <div class="modal-box">
-      <button class="modal-close" id="closeEditEntryModal">&times;</button>
-      <div class="modal-title">Edit Transaksi</div>
+      <button class="modal-close" id="closeEditEntryModal" aria-label="Tutup dialog edit transaksi">&times;</button>
+      <div class="modal-title" id="editEntryModalTitle">Edit Transaksi</div>
       <div class="modal-subtitle">Akun/jenis transaksi tidak bisa diubah di sini â€” hapus &amp; catat ulang kalau perlu ganti itu.</div>
       <div class="budget-form-grid">
         <label class="full-row">Tanggal &amp; waktu</label>
@@ -559,10 +581,10 @@
     </div>
   </div>
 
-  <div class="modal-overlay" id="accountsModalOverlay">
+  <div class="modal-overlay" id="accountsModalOverlay" role="dialog" aria-modal="true" aria-hidden="true" aria-labelledby="accountsModalTitle">
     <div class="modal-box">
-      <button class="modal-close" id="closeAccountsModal">&times;</button>
-      <div class="modal-title">Kelola Akun</div>
+      <button class="modal-close" id="closeAccountsModal" aria-label="Tutup dialog kelola akun">&times;</button>
+      <div class="modal-title" id="accountsModalTitle">Kelola Akun</div>
       <div class="modal-subtitle">Tunai, Debit, QRIS, Kartu Kredit â€” atau tambah akun bank kamu sendiri.</div>
       <div class="accounts-list" id="accountsRow"></div>
       <div class="manage-panel open" id="managePanel">
@@ -579,10 +601,10 @@
     </div>
   </div>
 
-  <div class="modal-overlay" id="goalsModalOverlay">
+  <div class="modal-overlay" id="goalsModalOverlay" role="dialog" aria-modal="true" aria-hidden="true" aria-labelledby="goalsModalTitle">
     <div class="modal-box">
-      <button class="modal-close" id="closeGoalsModal">&times;</button>
-      <div class="modal-title">Rencana Dana</div>
+      <button class="modal-close" id="closeGoalsModal" aria-label="Tutup dialog rencana dana">&times;</button>
+      <div class="modal-title" id="goalsModalTitle">Rencana Dana</div>
       <div class="modal-subtitle">Dana darurat, dana haji, atau tujuan besar lainnya â€” nabung lewat input cepat, pantau progresnya di sini.</div>
       <div id="goalsList"></div>
       <div class="goal-panel open" id="goalPanel">
@@ -596,10 +618,10 @@
     </div>
   </div>
 
-  <div class="modal-overlay" id="splitModalOverlay">
+  <div class="modal-overlay" id="splitModalOverlay" role="dialog" aria-modal="true" aria-hidden="true" aria-labelledby="splitModalTitle">
     <div class="modal-box">
-      <button class="modal-close" id="closeSplitModal">&times;</button>
-      <div class="modal-title">Splitbill Calculator</div>
+      <button class="modal-close" id="closeSplitModal" aria-label="Tutup dialog split bill">&times;</button>
+      <div class="modal-title" id="splitModalTitle">Splitbill Calculator</div>
       <div class="modal-subtitle">Hitung berapa yang harus dibayar tiap orang, termasuk pajak &amp; service charge.</div>
 
       <div id="splitParticipantsList"></div>
@@ -715,6 +737,29 @@
   let editingEntryId = null;
   const splitModalOverlayEl = document.getElementById('splitModalOverlay');
   const closeSplitModalBtn = document.getElementById('closeSplitModal');
+  let activeModalEl = null;
+  let modalTriggerEl = null;
+
+  function openModal(modalEl, triggerEl = document.activeElement){
+    if(activeModalEl && activeModalEl !== modalEl) closeModal(activeModalEl, false);
+    activeModalEl = modalEl;
+    modalTriggerEl = triggerEl instanceof HTMLElement ? triggerEl : null;
+    modalEl.classList.add('open');
+    modalEl.setAttribute('aria-hidden', 'false');
+    const initialFocus = modalEl.querySelector('.modal-close, button, input, select, textarea, [href], [tabindex]:not([tabindex="-1"])');
+    if(initialFocus) initialFocus.focus();
+  }
+
+  function closeModal(modalEl = activeModalEl, restoreFocus = true){
+    if(!modalEl) return;
+    modalEl.classList.remove('open');
+    modalEl.setAttribute('aria-hidden', 'true');
+    if(modalEl !== activeModalEl) return;
+    const trigger = modalTriggerEl;
+    activeModalEl = null;
+    modalTriggerEl = null;
+    if(restoreFocus && trigger && document.contains(trigger)) trigger.focus();
+  }
   const storageBannerEl = document.getElementById('storageBanner');
   const guestBannerEl = document.getElementById('guestBanner');
   const loggedInBannerEl = document.getElementById('loggedInBanner');
@@ -1869,7 +1914,7 @@
     editEntryCatEl.style.display = isPlainCategory ? '' : 'none';
     editEntryCatLabelEl.style.display = isPlainCategory ? '' : 'none';
     editEntryCatEl.value = entry.category;
-    editEntryModalOverlayEl.classList.add('open');
+    openModal(editEntryModalOverlayEl);
   }
 
   function saveEditedEntry(){
@@ -1891,7 +1936,7 @@
     }
     saveEntries();
     render();
-    editEntryModalOverlayEl.classList.remove('open');
+    closeModal(editEntryModalOverlayEl);
     setFeedback('Transaksi berhasil diperbarui.', 'hero-feedback payment');
   }
 
@@ -2187,8 +2232,8 @@
     else removeEntry(id);
   });
 
-  closeEditEntryModalBtn.addEventListener('click', () => { editEntryModalOverlayEl.classList.remove('open'); });
-  editEntryModalOverlayEl.addEventListener('click', (e) => { if(e.target === editEntryModalOverlayEl) editEntryModalOverlayEl.classList.remove('open'); });
+  closeEditEntryModalBtn.addEventListener('click', () => { closeModal(editEntryModalOverlayEl); });
+  editEntryModalOverlayEl.addEventListener('click', (e) => { if(e.target === editEntryModalOverlayEl) closeModal(editEntryModalOverlayEl); });
   saveEditEntryBtn.addEventListener('click', saveEditedEntry);
   [editEntryDateEl, editEntryDescEl, editEntryAmountEl, editEntryCatEl].forEach(el => {
     el.addEventListener('keydown', (e) => { if(e.key === 'Enter') saveEditedEntry(); });
@@ -2206,8 +2251,8 @@
     render();
   });
 
-  closeAccountsModalBtn.addEventListener('click', () => { accountsModalOverlayEl.classList.remove('open'); });
-  accountsModalOverlayEl.addEventListener('click', (e) => { if(e.target === accountsModalOverlayEl) accountsModalOverlayEl.classList.remove('open'); });
+  closeAccountsModalBtn.addEventListener('click', () => { closeModal(accountsModalOverlayEl); });
+  accountsModalOverlayEl.addEventListener('click', (e) => { if(e.target === accountsModalOverlayEl) closeModal(accountsModalOverlayEl); });
   toggleDarkModeBtn.addEventListener('click', () => {
     settings.darkMode = !settings.darkMode;
     document.body.classList.toggle('dark', settings.darkMode);
@@ -2225,9 +2270,9 @@
     if(!btn) return;
     const which = btn.getAttribute('data-open');
     menuDropdownEl.classList.remove('open');
-    if(which === 'accounts') accountsModalOverlayEl.classList.add('open');
-    if(which === 'goals') goalsModalOverlayEl.classList.add('open');
-    if(which === 'split') splitModalOverlayEl.classList.add('open');
+    if(which === 'accounts') openModal(accountsModalOverlayEl, toggleMenuBtn);
+    if(which === 'goals') openModal(goalsModalOverlayEl, toggleMenuBtn);
+    if(which === 'split') openModal(splitModalOverlayEl, toggleMenuBtn);
     if(which === 'switch'){
       const ok = window.confirm('Keluar dari akun ini? Kamu akan diminta login ulang (data yang sudah tersimpan tidak hilang).');
       if(!ok) return;
@@ -2253,18 +2298,33 @@
     }
   });
   document.addEventListener('keydown', (e) => {
-    if(e.key !== 'Escape') return;
-    menuDropdownEl.classList.remove('open');
-    dataPanelEl.classList.remove('open');
-    splitModalOverlayEl.classList.remove('open');
-    goalsModalOverlayEl.classList.remove('open');
-    accountsModalOverlayEl.classList.remove('open');
-    editEntryModalOverlayEl.classList.remove('open');
+    if(e.key === 'Escape'){
+      menuDropdownEl.classList.remove('open');
+      dataPanelEl.classList.remove('open');
+      if(activeModalEl){
+        e.preventDefault();
+        closeModal(activeModalEl);
+      }
+      return;
+    }
+    if(e.key === 'Tab' && activeModalEl){
+      const focusable = Array.from(activeModalEl.querySelectorAll('button:not([disabled]), input:not([disabled]), select:not([disabled]), textarea:not([disabled]), [href], [tabindex]:not([tabindex="-1"])')).filter(el => !el.hidden);
+      if(!focusable.length) return;
+      const first = focusable[0];
+      const last = focusable[focusable.length - 1];
+      if(e.shiftKey && document.activeElement === first){
+        e.preventDefault();
+        last.focus();
+      } else if(!e.shiftKey && document.activeElement === last){
+        e.preventDefault();
+        first.focus();
+      }
+    }
   });
-  closeGoalsModalBtn.addEventListener('click', () => { goalsModalOverlayEl.classList.remove('open'); });
-  goalsModalOverlayEl.addEventListener('click', (e) => { if(e.target === goalsModalOverlayEl) goalsModalOverlayEl.classList.remove('open'); });
-  closeSplitModalBtn.addEventListener('click', () => { splitModalOverlayEl.classList.remove('open'); });
-  splitModalOverlayEl.addEventListener('click', (e) => { if(e.target === splitModalOverlayEl) splitModalOverlayEl.classList.remove('open'); });
+  closeGoalsModalBtn.addEventListener('click', () => { closeModal(goalsModalOverlayEl); });
+  goalsModalOverlayEl.addEventListener('click', (e) => { if(e.target === goalsModalOverlayEl) closeModal(goalsModalOverlayEl); });
+  closeSplitModalBtn.addEventListener('click', () => { closeModal(splitModalOverlayEl); });
+  splitModalOverlayEl.addEventListener('click', (e) => { if(e.target === splitModalOverlayEl) closeModal(splitModalOverlayEl); });
 
   exportDataBtn.addEventListener('click', exportData);
   importDataInputEl.addEventListener('change', (e) => {
@@ -2342,4 +2402,3 @@
 
 </body>
 </html>
-
