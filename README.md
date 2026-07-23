@@ -1,4 +1,4 @@
-# Income-Outcome-Tracing-Indonesia-
+# Income-Outcome-Tracing (Bahasa version only)
 Productivity tools untuk perhitungan pengeluaran dan pemasukan bulanan pribadi
 
 ## Riwayat versi
