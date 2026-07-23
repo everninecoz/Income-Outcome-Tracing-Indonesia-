@@ -1,0 +1,2353 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>IOT â€” Income Outcome Tracing</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@400;500;600;700&family=IBM+Plex+Mono:wght@400;500;600&display=swap" rel="stylesheet">
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<style>
+  :root{
+    --desk: #E3DECF;
+    --paper: #F6F3EA;
+    --line: #D8D2BF;
+    --ink: #202B24;
+    --ink-soft: #6B7268;
+    --income: #2E6B52;
+    --income-bg: #E4EEE8;
+    --outcome: #7A2E2E;
+    --outcome-bg: #F1E3E0;
+    --stamp: #A9812C;
+    --stamp-bg: #F1E9D3;
+    --goal: #3D5A80;
+    --goal-bg: #E3EAF1;
+    --shadow: rgba(32,43,36,0.13);
+    --shadow-lift: rgba(32,43,36,0.20);
+    --r-sm: 6px;
+    --r-md: 10px;
+    --r-lg: 16px;
+    --ease: cubic-bezier(0.4, 0, 0.2, 1);
+  }
+  *{box-sizing:border-box;}
+  body.dark{
+    --desk: #1B211C;
+    --paper: #242B24;
+    --line: #3A4238;
+    --ink: #EDE9DD;
+    --ink-soft: #9BA39A;
+    --income: #6FBF9A;
+    --income-bg: rgba(111,191,154,0.15);
+    --outcome: #E08A78;
+    --outcome-bg: rgba(224,138,120,0.15);
+    --stamp: #D9B968;
+    --stamp-bg: rgba(217,185,104,0.18);
+    --goal: #8FB0D9;
+    --goal-bg: rgba(143,176,217,0.15);
+    --shadow: rgba(0,0,0,0.45);
+    --shadow-lift: rgba(0,0,0,0.6);
+  }
+  body{ transition: background-color 0.2s var(--ease); }
+  html,body{ height:100%; }
+  body{
+    margin:0; font-family:'Space Grotesk', sans-serif; color:var(--ink);
+    background: var(--desk);
+    background-image: radial-gradient(circle at 1px 1px, rgba(32,43,36,0.045) 1px, transparent 0);
+    background-size: 18px 18px;
+  }
+  .app-shell{ max-width:1180px; margin:0 auto; padding:26px 20px 50px; }
+
+  .top-bar{
+    background:var(--paper); border-radius:var(--r-md); box-shadow:0 4px 16px var(--shadow);
+    padding:16px 22px; display:flex; align-items:center; justify-content:space-between; flex-wrap:wrap; gap:10px;
+    margin-bottom:20px; position:relative;
+  }
+  .brand-block{ display:flex; align-items:baseline; gap:10px; flex-wrap:wrap; }
+  .brand-block .brand{ font-weight:700; font-size:22px; letter-spacing:4px; text-transform:uppercase; }
+  .brand-block .subbrand{ font-size:10.5px; letter-spacing:1.5px; text-transform:uppercase; color:var(--ink-soft); }
+  .brand-block .byline{ font-size:9.5px; color:var(--stamp); letter-spacing:0.5px; }
+  .top-bar-right{ display:flex; align-items:center; gap:14px; flex-wrap:wrap; }
+  .date-text{ font-family:'IBM Plex Mono', monospace; font-size:12px; color:var(--ink-soft); text-transform:capitalize; }
+  .version-badge{ font-family:'IBM Plex Mono', monospace; font-size:10px; background:var(--stamp-bg); color:var(--stamp); padding:2px 8px; border-radius:10px; letter-spacing:0.5px; }
+  .save-status{ font-size:10.5px; font-family:'IBM Plex Mono', monospace; padding:2px 8px; border-radius:10px; display:none; align-items:center; gap:5px; }
+  .save-status.show{ display:inline-flex; }
+  .save-status.saving{ background:var(--stamp-bg); color:var(--stamp); }
+  .save-status.saved{ background:var(--income-bg); color:var(--income); }
+  .save-status.error{ background:var(--outcome-bg); color:var(--outcome); }
+  .save-status .dot{ width:6px; height:6px; border-radius:50%; background:currentColor; }
+  .save-status.saving .dot{ animation: pulseDot 1s ease-in-out infinite; }
+  @keyframes pulseDot{ 0%,100%{ opacity:0.4; } 50%{ opacity:1; } }
+  .version-link{ background:none; border:none; color:var(--ink-soft); font-size:11px; text-decoration:underline; cursor:pointer; font-family:'Space Grotesk',sans-serif; padding:0; }
+
+  .menu-wrap{ position:relative; }
+  .menu-btn{ background:var(--ink); color:var(--paper); border:none; border-radius:var(--r-sm); font-size:11.5px; padding:6px 12px; cursor:pointer; font-family:'Space Grotesk',sans-serif; }
+  .menu-btn:hover{ background:var(--stamp); }
+  .menu-dropdown{ display:none; position:absolute; top:100%; right:0; margin-top:6px; background:var(--paper); border:1px solid var(--line);
+    border-radius:var(--r-md); box-shadow:0 8px 24px var(--shadow); overflow:hidden; min-width:180px; z-index:10; }
+  .menu-dropdown.open{ display:block; }
+  .menu-dropdown button{ display:block; width:100%; text-align:left; background:none; border:none; padding:11px 16px; font-size:12.5px;
+    color:var(--ink); cursor:pointer; font-family:'Space Grotesk',sans-serif; }
+  .menu-dropdown button:hover{ background:var(--stamp-bg); color:var(--stamp); }
+  .menu-dropdown button + button{ border-top:1px solid var(--line); }
+  .changelog, .data-panel{ display:none; position:absolute; top:100%; margin-top:6px; z-index:6;
+    background:var(--paper); border:1px solid var(--line); border-radius:var(--r-md); box-shadow:0 8px 24px var(--shadow);
+    padding:14px 18px; width:320px; text-align:left; font-size:11.5px; }
+  .changelog{ right:22px; max-height:280px; overflow-y:auto; }
+  .data-panel{ right:180px; }
+  .changelog.open, .data-panel.open{ display:block; }
+  .changelog .cl-item{ margin-bottom:6px; padding-bottom:6px; border-bottom:1px dotted var(--line); }
+  .changelog .cl-item:last-child{ margin-bottom:0; border-bottom:none; padding-bottom:0; }
+  .changelog .cl-ver{ font-family:'IBM Plex Mono', monospace; font-weight:600; color:var(--stamp); font-size:11px; }
+  .changelog .cl-note{ color:var(--ink-soft); margin-top:2px; font-size:10.5px; line-height:1.4; }
+  .data-panel p{ margin:0 0 10px; color:var(--ink-soft); line-height:1.5; }
+  .data-panel .dp-row{ display:flex; gap:8px; margin-bottom:8px; }
+  .data-panel button, .data-panel label.file-btn{ background:var(--ink); color:var(--paper); border:none; border-radius:4px; font-size:11.5px; padding:7px 12px; cursor:pointer; text-align:center; flex:1; }
+  .data-panel input[type=file]{ display:none; }
+
+  .hero-section{ padding:4px 0 6px; }
+  .hero-input-wrap{ max-width:640px; width:100%; margin:0 auto; }
+  .hero-input-card{ background:rgba(255,255,255,0.5); border-radius:var(--r-sm); padding:6px 6px 6px 16px; display:flex; align-items:center; gap:10px; border:1px solid var(--line); }
+  .hero-input-card input[type=text]{ flex:1; border:none; background:transparent; outline:none; font-family:'IBM Plex Mono', monospace; font-size:15px; color:var(--ink); padding:13px 0; }
+  .hero-input-card input::placeholder{ color:var(--ink-soft); opacity:0.7; }
+  .hero-send-btn{ background:var(--ink); color:var(--paper); border:none; border-radius:var(--r-sm); width:40px; height:40px; flex:0 0 auto; cursor:pointer; font-size:16px; display:flex; align-items:center; justify-content:center; }
+  .hero-send-btn:hover{ background:var(--stamp); }
+  .hero-hint{ font-size:11px; color:var(--ink-soft); margin-top:10px; font-style:italic; text-align:center; }
+  .hero-feedback{ font-size:11.5px; margin-top:6px; font-family:'IBM Plex Mono', monospace; min-height:14px; text-align:center;
+    opacity:0; transition: opacity 0.4s var(--ease); }
+  .hero-feedback.show{ opacity:1; }
+  .hero-feedback.income{color:var(--income);}
+  .hero-feedback.outcome{color:var(--outcome);}
+  .hero-feedback.payment{color:var(--stamp);}
+  .hero-feedback.saving{color:var(--goal);}
+  .hero-clarify{ display:none; margin-top:10px; background:var(--stamp-bg); border:1px dashed var(--stamp); border-radius:var(--r-md); padding:12px 16px; }
+  .hero-clarify.open{ display:block; }
+  .hero-clarify .cq{ font-size:12.5px; color:var(--ink); margin-bottom:8px; text-align:center; }
+  .hero-clarify .options{ display:flex; flex-wrap:wrap; gap:6px; justify-content:center; }
+  .hero-clarify button.opt{ background:var(--paper); border:1px solid var(--stamp); color:var(--stamp); font-family:'Space Grotesk',sans-serif; font-size:11.5px; border-radius:20px; padding:6px 14px; cursor:pointer; }
+  .hero-clarify button.opt:hover{ background:var(--stamp); color:var(--paper); }
+  .hero-clarify button.cancel{ background:none; border:1px solid var(--line); color:var(--ink-soft); font-size:11px; border-radius:20px; padding:5px 12px; cursor:pointer; margin-top:8px; display:block; margin-left:auto; margin-right:auto; }
+
+  .dashboard-grid{ display:grid; grid-template-columns: 270px 1fr 310px; gap:20px; align-items:start; }
+  @media (max-width: 980px){ .dashboard-grid{ grid-template-columns: 1fr; } .data-panel{ right:20px; width:280px; } }
+
+  .col{ display:flex; flex-direction:column; gap:20px; }
+
+  .card{ background:var(--paper); border-radius:var(--r-lg); box-shadow:0 4px 16px var(--shadow); padding:20px; position:relative;
+    transition: box-shadow 0.2s var(--ease), transform 0.2s var(--ease); }
+  .card:hover{ box-shadow:0 8px 24px var(--shadow-lift); transform:translateY(-2px); }
+  .card-tab{ position:absolute; top:-11px; left:18px; background:var(--ink); color:var(--paper);
+    font-size:9.5px; letter-spacing:1.2px; text-transform:uppercase; padding:4px 11px; border-radius:4px 4px 0 0; }
+  .card-tab.stamp{ background:var(--stamp); }
+  .card-tab.goal{ background:var(--goal); }
+  .card-tab.income{ background:var(--income); }
+  .card-inner-top{ margin-top:6px; }
+  .section-label{ font-size:10.5px; letter-spacing:1.5px; text-transform:uppercase; color:var(--ink-soft); margin-bottom:10px; display:flex; justify-content:space-between; align-items:center; }
+  .manage-btn{ background:none; border:1px solid var(--line); color:var(--ink-soft); font-family:'Space Grotesk',sans-serif; font-size:10px; letter-spacing:0.5px; border-radius:3px; padding:3px 7px; cursor:pointer; text-transform:none; }
+  .manage-btn:hover{ border-color:var(--stamp); color:var(--stamp); }
+
+  .balance-wrap{ display:flex; flex-direction:column; align-items:center; padding:10px 0 6px; }
+  .balance-label{ font-size:11px; letter-spacing:2px; text-transform:uppercase; color:var(--ink-soft); margin-bottom:14px; text-align:center; }
+  .balance-stamp{
+    display:inline-flex; flex-direction:column; align-items:center; gap:6px;
+    border:2.5px solid var(--stamp); border-radius:var(--r-md); background:rgba(169,129,44,0.06);
+    padding:16px 24px; transform: rotate(-2deg);
+  }
+  .balance-stamp .stamp-tag{ font-size:10px; letter-spacing:2px; text-transform:uppercase; color:var(--stamp); font-family:'Space Grotesk', sans-serif; font-weight:600; }
+  .balance-stamp .stamp-amount{ font-family:'IBM Plex Mono', monospace; font-size:24px; font-weight:700; color:var(--stamp); white-space:nowrap; line-height:1.1; }
+  .balance-stamp .stamp-amount.negative{ color:var(--outcome); }
+  .balance-stamp .stamp-amount.positive{ color:var(--income); }
+
+  .quick-stats{ display:flex; justify-content:space-around; margin-top:20px; padding-top:16px; border-top:1px dashed var(--line); }
+  .qs-item{ display:flex; flex-direction:column; align-items:center; gap:2px; }
+  .qs-num{ font-family:'IBM Plex Mono', monospace; font-size:17px; font-weight:700; color:var(--ink); }
+  .qs-label{ font-size:9.5px; letter-spacing:0.5px; text-transform:uppercase; color:var(--ink-soft); }
+
+  .accounts-list{ display:flex; flex-direction:column; gap:8px; }
+  .account-chip{ border:1px solid var(--line); border-radius:var(--r-sm); padding:9px 11px; background:rgba(255,255,255,0.4); display:flex; justify-content:space-between; align-items:center; gap:8px;
+    transition: border-color 0.15s var(--ease), background-color 0.15s var(--ease); }
+  .account-chip:hover{ border-color:var(--stamp); background:rgba(255,255,255,0.65); }
+  .account-chip .name-wrap{ display:flex; flex-direction:column; }
+  .account-chip .name{ font-size:12px; font-weight:600; white-space:nowrap; }
+  .account-chip .type{ font-size:9px; color:var(--ink-soft); text-transform:uppercase; letter-spacing:0.5px; margin-top:1px; }
+  .account-chip .bal{ font-family:'IBM Plex Mono', monospace; font-size:12.5px; white-space:nowrap; }
+  .account-chip .bal.debt{ color:var(--outcome); }
+  .account-chip .bal.ok{ color:var(--ink); }
+
+  .manage-panel{ display:none; padding-top:14px; margin-top:12px; border-top:1px dashed var(--line); }
+  .manage-panel.open{ display:block; }
+  .manage-list-item{ display:flex; justify-content:space-between; align-items:center; font-size:12.5px; padding:5px 0; border-bottom:1px dotted var(--line); }
+  .locked-tag{ font-size:10px; color:var(--ink-soft); white-space:nowrap; }
+  .manage-list-item .mtype{ color:var(--ink-soft); font-size:10.5px; margin-left:6px; }
+  .del-btn{ background:none; border:1px solid var(--line); color:var(--ink-soft); font-size:9.5px; border-radius:3px; padding:2px 6px; cursor:pointer; }
+  .del-btn:hover{ border-color:var(--outcome); color:var(--outcome); }
+  .add-account-form{ display:flex; gap:6px; margin-top:10px; flex-wrap:wrap; }
+  .add-account-form input[type=text]{ flex:1; min-width:100px; font-family:'Space Grotesk',sans-serif; font-size:12.5px; border:1px solid var(--line); border-radius:3px; padding:6px 8px; background:transparent; color:var(--ink); }
+  .add-account-form input[type=number], .add-account-form input[type=date]{ font-family:'IBM Plex Mono',monospace; font-size:12px; border:1px solid var(--line); border-radius:3px; padding:6px 8px; background:transparent; color:var(--ink); }
+  .add-account-form select{ font-family:'Space Grotesk',sans-serif; font-size:12px; border:1px solid var(--line); border-radius:3px; background:transparent; color:var(--ink); padding:0 4px; }
+  .add-account-form button{ background:var(--ink); color:var(--paper); border:none; border-radius:3px; font-size:12px; padding:0 12px; cursor:pointer; }
+
+  .filter-bar{ display:flex; flex-wrap:wrap; gap:6px; margin-top:2px; }
+  .filter-bar input[type=text]{ flex:1; min-width:100px; font-family:'Space Grotesk',sans-serif; font-size:11.5px; border:1px solid var(--line); border-radius:var(--r-sm); padding:6px 9px; background:rgba(255,255,255,0.4); color:var(--ink); }
+  .filter-bar input[type=month]{ font-family:'IBM Plex Mono',monospace; font-size:11px; border:1px solid var(--line); border-radius:var(--r-sm); padding:6px 8px; background:rgba(255,255,255,0.4); color:var(--ink); }
+  .filter-bar select{ font-family:'Space Grotesk',sans-serif; font-size:11.5px; border:1px solid var(--line); border-radius:var(--r-sm); padding:6px 8px; background:rgba(255,255,255,0.4); color:var(--ink); max-width:120px; }
+  .filter-bar button{ background:none; border:1px solid var(--line); color:var(--ink-soft); border-radius:var(--r-sm); width:30px; cursor:pointer; }
+  .filter-bar button:hover{ border-color:var(--stamp); color:var(--stamp); }
+  .mutation-note{ font-size:10.5px; color:var(--goal); margin:8px 0 -4px; font-style:italic; }
+  .list{ max-height:460px; overflow-y:auto; margin-top:4px; }
+  .empty{ text-align:center; color:var(--ink-soft); font-size:13px; font-style:italic; padding:40px 10px; }
+  .empty .empty-icon{ font-size:26px; display:block; margin-bottom:10px; font-style:normal; opacity:0.5; }
+  .day-label{ font-size:10.5px; letter-spacing:1.5px; text-transform:uppercase; color:var(--ink-soft); padding:14px 0 6px; }
+  .entry{ display:grid; grid-template-columns: 1fr auto auto; align-items:start; column-gap:10px; padding:9px 6px; margin:0 -6px; border-bottom:1px dotted var(--line); border-radius:6px;
+    transition: background-color 0.15s var(--ease); }
+  .entry:hover{ background:rgba(169,129,44,0.06); }
+  .entry .desc{ font-size:14px; font-weight:500; }
+  .entry .meta{ font-size:10.5px; color:var(--ink-soft); margin-top:2px; }
+  .tags{ display:flex; gap:4px; margin-top:4px; flex-wrap:wrap; }
+  .tag{ display:inline-block; font-size:9.5px; letter-spacing:0.4px; padding:2px 6px; border-radius:3px; }
+  .tag.income{background:var(--income-bg); color:var(--income);}
+  .tag.outcome{background:var(--outcome-bg); color:var(--outcome);}
+  .tag.payment{background:var(--stamp-bg); color:var(--stamp);}
+  .tag.saving{background:var(--goal-bg); color:var(--goal);}
+  .tag.withdraw_goal{background:var(--goal-bg); color:var(--goal);}
+  .tag.transfer{background:var(--stamp-bg); color:var(--stamp);}
+  .tag.acc{ background:rgba(0,0,0,0.05); color:var(--ink-soft); }
+  .entry .amount{ font-family:'IBM Plex Mono', monospace; font-size:14px; font-weight:600; white-space:nowrap; padding-top:1px; }
+  .entry .amount.income{color:var(--income);}
+  .entry .amount.outcome{color:var(--outcome);}
+  .entry .amount.payment{color:var(--stamp);}
+  .entry .amount.saving{color:var(--goal);}
+  .entry .amount.withdraw_goal{color:var(--goal);}
+  .entry .amount.transfer{color:var(--stamp);}
+  .entry .void-btn{ background:none; border:1px solid var(--line); color:var(--ink-soft); font-family:'IBM Plex Mono', monospace; font-size:10px; border-radius:3px; padding:2px 6px; cursor:pointer; align-self:start; }
+  .entry .void-btn:hover{ border-color:var(--outcome); color:var(--outcome); }
+
+  .summary-row{ display:flex; justify-content:space-between; font-family:'IBM Plex Mono', monospace; font-size:12.5px; padding:4px 0; }
+  .summary-row.income span:last-child{color:var(--income);}
+  .summary-row.outcome span:last-child{color:var(--outcome);}
+  .summary-row.debt span:last-child{color:var(--outcome);}
+  .summary-row.goal span:last-child{color:var(--goal);}
+  .summary-row.total{ font-weight:600; font-size:13.5px; border-top:1px dashed var(--line); margin-top:6px; padding-top:9px; }
+
+  .ai-status{ font-weight:600; font-size:13.5px; margin-bottom:8px; }
+  .ai-status.ok{ color:var(--income); }
+  .ai-status.warn{ color:var(--stamp); }
+  .ai-status.over{ color:var(--outcome); }
+  .bar-track{ height:8px; background:var(--line); border-radius:4px; overflow:hidden; margin-bottom:10px; }
+  .bar-fill{ height:100%; border-radius:4px; transition:width 0.3s ease; }
+  .bar-fill.ok{ background:var(--income); }
+  .bar-fill.warn{ background:var(--stamp); }
+  .bar-fill.over{ background:var(--outcome); }
+  .bar-fill.goal{ background:var(--goal); }
+  .ai-line{ font-size:12px; color:var(--ink); margin-bottom:5px; line-height:1.5; }
+  .ai-line .num{ font-family:'IBM Plex Mono', monospace; font-weight:600; }
+  .ai-warn-list{ margin-top:6px; }
+  .ai-warn-item{ font-size:11.5px; color:var(--outcome); margin-bottom:3px; }
+
+  .budget-panel{ display:none; padding-top:14px; margin-top:14px; border-top:1px dashed var(--line); }
+  .budget-panel.open{ display:block; }
+  .budget-form-grid{ display:grid; grid-template-columns: 1fr 130px; gap:8px 10px; align-items:center; }
+  .budget-form-grid .full-row{ grid-column: 1 / -1; }
+  .budget-form-grid label{ font-size:11.5px; color:var(--ink-soft); }
+  .budget-form-grid input[type=number]{
+    width:100%; height:32px; font-family:'IBM Plex Mono', monospace; font-size:12.5px;
+    border:1px solid var(--line); border-radius:4px; padding:0 8px; background:rgba(255,255,255,0.5); color:var(--ink);
+  }
+  .budget-panel .cat-title{ font-size:10.5px; letter-spacing:1px; text-transform:uppercase; color:var(--ink-soft); margin:14px 0 8px; }
+  .budget-panel button.save{ background:var(--ink); color:var(--paper); border:none; border-radius:4px; font-size:12px; padding:9px 14px; cursor:pointer; margin-top:14px; width:100%; }
+
+  .goal-card{ border:1px solid var(--line); border-radius:6px; padding:12px 14px; margin-bottom:10px; background:rgba(255,255,255,0.35); }
+  .goal-card:last-child{ margin-bottom:0; }
+  .goal-card .gname{ font-size:13.5px; font-weight:600; display:flex; justify-content:space-between; align-items:center; }
+  .goal-card .gamount{ font-family:'IBM Plex Mono', monospace; font-size:12px; color:var(--ink-soft); margin:6px 0; }
+  .goal-card .gdeadline{ font-size:10.5px; color:var(--ink-soft); margin-bottom:6px; }
+  .goal-card .gsuggest{ font-size:11.5px; color:var(--goal); margin-top:6px; }
+  .goals-empty{ font-size:12px; color:var(--ink-soft); font-style:italic; padding:24px 8px; text-align:center; }
+  .goals-empty .empty-icon{ font-size:24px; display:block; margin-bottom:8px; font-style:normal; opacity:0.5; }
+  .goal-panel{ display:none; padding-top:14px; margin-top:14px; border-top:1px dashed var(--line); }
+  .goal-panel.open{ display:block; }
+
+  .modal-overlay{ display:flex; position:fixed; inset:0; background:rgba(32,43,36,0.55); z-index:50; align-items:center; justify-content:center; padding:20px;
+    opacity:0; visibility:hidden; transition: opacity 0.2s var(--ease), visibility 0s linear 0.2s; }
+  .modal-overlay.open{ opacity:1; visibility:visible; transition: opacity 0.2s var(--ease); }
+  .modal-box{ background:var(--paper); border-radius:var(--r-lg); max-width:460px; width:100%; max-height:88vh; overflow-y:auto; padding:24px; position:relative; box-shadow:0 20px 50px rgba(0,0,0,0.3);
+    transform: translateY(10px) scale(0.98); transition: transform 0.2s var(--ease); }
+  .modal-overlay.open .modal-box{ transform: translateY(0) scale(1); }
+  .modal-close{ position:absolute; top:14px; right:16px; background:none; border:none; font-size:18px; color:var(--ink-soft); cursor:pointer; line-height:1; }
+  .modal-close:hover{ color:var(--outcome); }
+  .modal-title{ font-size:15px; font-weight:700; margin-bottom:4px; }
+  .modal-subtitle{ font-size:11px; color:var(--ink-soft); margin-bottom:16px; }
+
+  .split-row{ display:grid; grid-template-columns: 1fr 110px 44px; gap:6px; margin-bottom:6px; align-items:center; }
+  .split-row input[type=text], .split-row input[type=number]{ font-family:'Space Grotesk',sans-serif; font-size:12.5px; border:1px solid var(--line); border-radius:4px; padding:7px 8px; background:rgba(255,255,255,0.5); color:var(--ink); }
+  .split-row input[type=number]{ font-family:'IBM Plex Mono',monospace; }
+  .split-row button.split-del{ height:32px; padding:0; }
+  .split-add-btn{ background:none; border:1px dashed var(--line); color:var(--ink-soft); font-size:12px; border-radius:4px; padding:7px 12px; cursor:pointer; width:100%; margin-top:2px; }
+  .split-add-btn:hover{ border-color:var(--stamp); color:var(--stamp); }
+  .split-pct-row{ display:grid; grid-template-columns: 1fr 1fr; gap:10px; margin:14px 0; }
+  .split-pct-row div label{ font-size:11px; color:var(--ink-soft); display:block; margin-bottom:4px; }
+  .split-pct-row input{ width:100%; height:32px; font-family:'IBM Plex Mono',monospace; font-size:12.5px; border:1px solid var(--line); border-radius:4px; padding:0 8px; background:rgba(255,255,255,0.5); color:var(--ink); }
+  .split-breakdown{ background:rgba(255,255,255,0.4); border:1px solid var(--line); border-radius:6px; padding:12px 14px; margin-top:4px; }
+  .split-breakdown .sb-person{ display:flex; justify-content:space-between; font-size:12.5px; padding:5px 0; border-bottom:1px dotted var(--line); }
+  .split-breakdown .sb-person .sb-detail{ font-size:10px; color:var(--ink-soft); }
+  .split-breakdown .sb-total{ display:flex; justify-content:space-between; font-weight:600; font-size:13.5px; padding-top:10px; margin-top:6px; border-top:1px dashed var(--line); }
+  .split-actions{ display:flex; gap:8px; margin-top:14px; }
+  .split-actions button{ flex:1; border:none; border-radius:4px; font-size:12px; padding:9px 12px; cursor:pointer; }
+  .split-actions .print-btn{ background:var(--ink); color:var(--paper); }
+  .split-actions .record-btn{ background:var(--stamp); color:var(--paper); }
+
+  #printReceipt{ display:none; }
+  @media print{
+    body *{ visibility:hidden; }
+    #printReceipt, #printReceipt *{ visibility:visible; }
+    #printReceipt{ display:block; position:fixed; top:0; left:0; width:320px; margin:0 auto; padding:20px;
+      font-family:'IBM Plex Mono', monospace; background:#fff; color:#000; }
+    #printReceipt .pr-title{ text-align:center; font-weight:700; letter-spacing:2px; margin-bottom:4px; }
+    #printReceipt .pr-sub{ text-align:center; font-size:11px; margin-bottom:12px; }
+    #printReceipt .pr-line{ border-top:1px dashed #000; margin:8px 0; }
+    #printReceipt .pr-row{ display:flex; justify-content:space-between; font-size:12px; padding:3px 0; }
+    #printReceipt .pr-total{ font-weight:700; }
+  }
+
+  .app-footer{ text-align:center; font-size:10.5px; color:var(--ink-soft); margin-top:30px; letter-spacing:0.5px; }
+  .app-footer .stamp-name{ color:var(--stamp); font-weight:600; }
+
+  .storage-banner{ display:none; background:var(--outcome-bg); color:var(--outcome); border:1px solid var(--outcome); border-radius:var(--r-md);
+    padding:12px 18px; font-size:12px; line-height:1.5; margin-bottom:16px; }
+  .storage-banner.show{ display:block; }
+  .storage-banner strong{ display:block; margin-bottom:3px; }
+
+  .guest-banner{ background:var(--goal-bg); color:var(--goal); border-color:var(--goal); display:flex; align-items:center; justify-content:space-between; gap:14px; flex-wrap:wrap; }
+  .guest-save-row{ display:flex; gap:6px; flex:0 0 auto; }
+  .guest-save-row input{ font-family:'Space Grotesk',sans-serif; font-size:12px; border:1px solid var(--goal); border-radius:4px; padding:6px 10px; background:rgba(255,255,255,0.6); color:var(--ink); }
+  .guest-save-row button{ background:var(--goal); color:#fff; border:none; border-radius:4px; padding:6px 14px; font-size:12px; cursor:pointer; }
+  .guest-save-row button:hover{ opacity:0.85; }
+
+  .login-gate{ display:flex; position:fixed; inset:0; background:var(--desk); z-index:100; align-items:center; justify-content:center; padding:20px;
+    background-image: radial-gradient(circle at 1px 1px, rgba(32,43,36,0.05) 1px, transparent 0); background-size:18px 18px; }
+  .login-gate.hidden{ display:none; }
+  .login-box{ background:var(--paper); border-radius:var(--r-lg); box-shadow:0 20px 50px var(--shadow-lift); padding:36px 30px; max-width:340px; width:100%; text-align:center;
+    animation: loginPop 0.35s var(--ease); }
+  @keyframes loginPop{ from{ opacity:0; transform:translateY(14px) scale(0.97); } to{ opacity:1; transform:translateY(0) scale(1); } }
+  .login-icon{ width:56px; height:56px; margin:0 auto 14px; border:2.5px solid var(--stamp); border-radius:50%; display:flex; align-items:center; justify-content:center;
+    font-family:'IBM Plex Mono', monospace; font-weight:700; font-size:18px; color:var(--stamp); transform:rotate(-4deg); background:rgba(169,129,44,0.06); }
+  .login-brand{ font-weight:700; font-size:22px; letter-spacing:4px; text-transform:uppercase; }
+  .login-sub{ font-size:10.5px; letter-spacing:1.5px; text-transform:uppercase; color:var(--ink-soft); margin-top:2px; margin-bottom:18px; }
+  .login-hint{ font-size:11.5px; color:var(--ink-soft); line-height:1.5; margin-bottom:18px; }
+  .login-box input{ width:100%; font-family:'Space Grotesk',sans-serif; font-size:14px; border:1.5px solid var(--line); border-radius:var(--r-sm); padding:11px 12px; background:rgba(255,255,255,0.5); color:var(--ink); margin-bottom:10px; text-align:center;
+    transition: border-color 0.15s var(--ease), background-color 0.15s var(--ease); }
+  .login-box input:focus{ border-color:var(--stamp); background:rgba(255,255,255,0.8); outline:none; }
+  body.dark .login-box input, body.dark .guest-save-row input{ background:#151B17; color:#F7F4EB; border-color:#637060; }
+  body.dark .login-box input:focus, body.dark .guest-save-row input:focus{ background:#101612; border-color:var(--stamp); }
+  body.dark input::placeholder{ color:#B8C2B5; opacity:1; }
+  body.dark .hero-input-card, body.dark .filter-bar input, body.dark .filter-bar select,
+  body.dark .budget-form-grid input, body.dark .split-row input, body.dark .split-pct-row input,
+  body.dark .add-account-form input, body.dark .add-account-form select{
+    background:#151B17; color:#F7F4EB; border-color:#536050;
+  }
+  body.dark .filter-bar input:focus, body.dark .filter-bar select:focus,
+  body.dark .budget-form-grid input:focus, body.dark .split-row input:focus,
+  body.dark .split-pct-row input:focus, body.dark .add-account-form input:focus{ background:#101612; border-color:var(--stamp); }
+  body.dark .entry{ background:#202820; border-bottom-color:#465044; }
+  body.dark .entry:hover{ background:#2A3429; }
+  body.dark .entry .desc{ color:#F7F4EB; }
+  body.dark .tag.acc{ background:#343F34; color:#CDD6C9; }
+  .login-box button{ width:100%; background:var(--ink); color:var(--paper); border:none; border-radius:var(--r-sm); font-size:13px; font-weight:600; padding:11px 12px; cursor:pointer; }
+  .login-box button:hover{ background:var(--stamp); }
+  .login-divider{ font-size:10px; color:var(--ink-soft); margin:12px 0; text-transform:uppercase; letter-spacing:1.5px; display:flex; align-items:center; gap:8px; }
+  .login-divider::before, .login-divider::after{ content:''; flex:1; height:1px; background:var(--line); }
+  .guest-btn{ background:none !important; border:1.5px solid var(--line) !important; color:var(--ink-soft) !important; }
+  .guest-btn:hover{ border-color:var(--goal) !important; color:var(--goal) !important; }
+  body:not(.guest-mode) #guestBanner{ display:none !important; }
+  .login-error{ font-size:11px; color:var(--outcome); margin-top:8px; min-height:14px; }
+
+  ::-webkit-scrollbar{width:7px; height:7px;}
+  ::-webkit-scrollbar-thumb{background:var(--line); border-radius:4px;}
+  button{ transition: background-color 0.15s var(--ease), border-color 0.15s var(--ease), color 0.15s var(--ease), transform 0.1s var(--ease), opacity 0.15s var(--ease); }
+  button:active{ transform: scale(0.97); }
+  button:focus-visible, input:focus-visible, select:focus-visible{ outline:2px solid var(--stamp); outline-offset:2px; }
+</style>
+</head>
+<body class="dark">
+
+<div class="app-shell">
+
+  <div class="storage-banner" id="storageBanner">
+    <strong>Belum tersambung ke database</strong>
+    Isi <code>SUPABASE_ANON_KEY</code> di bagian atas kode (script) dengan anon public key dari dashboard Supabase kamu (Settings &gt; API), supaya data tersimpan otomatis dan permanen.
+  </div>
+
+  <div class="storage-banner guest-banner" id="guestBanner">
+    <span><strong>Mode Tamu â€” data ini belum tersimpan</strong>Coba-coba dulu sepuasnya. Kalau sudah cocok, simpan dengan username supaya tidak hilang saat refresh.</span>
+    <div class="guest-save-row">
+      <input type="text" id="guestSaveUsername" placeholder="Pilih username">
+      <input type="password" id="guestSavePassword" placeholder="Pilih password">
+      <button id="guestSaveBtn">Simpan</button><span id="guestSaveStatus" aria-live="polite"></span>
+    </div>
+  </div>
+  <div class="storage-banner" id="loggedInBanner" hidden></div>
+
+  <div class="login-gate" id="loginGate">
+    <div class="login-box">
+      <div class="login-icon">Rp</div>
+      <div class="login-brand">IOT</div>
+      <div class="login-sub">Income Outcome Tracing</div>
+      <div class="login-hint">Masukkan username &amp; password. Kalau username belum ada, akun baru otomatis dibuat. Kalau sudah ada, password wajib cocok â€” jadi username yang sama tidak bisa dipakai orang lain.</div>
+      <input type="text" id="usernameInput" placeholder="Username, contoh: budi123" autocomplete="username">
+      <input type="password" id="passwordInput" placeholder="Password" autocomplete="current-password">
+      <button id="loginBtn">Masuk / Daftar</button>
+      <div class="login-divider">atau</div>
+      <button id="guestBtn" class="guest-btn">Coba sebagai Tamu</button>
+      <div class="login-error" id="loginError"></div>
+    </div>
+  </div>
+
+  <div class="top-bar">
+
+    <div class="brand-block">
+      <span class="brand">IOT</span>
+      <span class="subbrand">Income Outcome Tracing</span>
+      <span class="byline">by Scalista</span>
+    </div>
+    <div class="top-bar-right">
+      <span class="date-text" id="todayDate">memuat...</span>
+      <span class="version-badge" id="versionBadge">v1.9</span>
+      <span class="version-badge" id="userBadge" hidden></span>
+      <span class="save-status" id="saveStatus"></span>
+      <button class="version-link" id="toggleData">cadangan data</button>
+      <button class="version-link" id="toggleChangelog">riwayat versi</button>
+      <button class="version-link" id="toggleDarkMode">&#9789; gelap</button>
+      <div class="menu-wrap">
+        <button class="menu-btn" id="toggleMenu">Menu &#9662;</button>
+        <div class="menu-dropdown" id="menuDropdown">
+          <button data-open="accounts">Kelola Akun</button>
+          <button data-open="goals">Rencana Dana</button>
+          <button data-open="split">Splitbill Calculator</button>
+          <button data-open="switch" id="switchAccountBtn">Ganti Akun / Keluar</button>
+        </div>
+      </div>
+    </div>
+    <div class="changelog" id="changelogPanel">
+      <div class="cl-item"><span class="cl-ver">v0.1â€“v0.9</span><div class="cl-note">Dasar: catat transaksi dari teks, banyak akun & kartu kredit, anggaran bulanan, Rencana Dana, dashboard 3 kolom, dan koneksi ke Supabase.</div></div>
+      <div class="cl-item"><span class="cl-ver">v1.0</span><div class="cl-note">Login pakai username, Menu dropdown, input di tengah layar.</div></div>
+      <div class="cl-item"><span class="cl-ver">v1.1</span><div class="cl-note">Mode Tamu untuk coba-coba sebelum simpan permanen.</div></div>
+      <div class="cl-item"><span class="cl-ver">v1.2</span><div class="cl-note">Ganti Akun/Keluar, cegah username ketimpa tanpa sadar.</div></div>
+      <div class="cl-item"><span class="cl-ver">v1.3</span><div class="cl-note">Pemolesan desain: hover, radius seragam, animasi modal.</div></div>
+      <div class="cl-item"><span class="cl-ver">v1.4</span><div class="cl-note">Kartu Akun dipindah ke Menu biar kolom lebih rapi.</div></div>
+      <div class="cl-item"><span class="cl-ver">v1.5</span><div class="cl-note">Statistik ringkas di kartu Saldo, feedback auto-hilang.</div></div>
+      <div class="cl-item"><span class="cl-ver">v1.6</span><div class="cl-note">Keamanan: login sekarang wajib password, diverifikasi di server (bukan JS) â€” tabel database dikunci total. Tambah validasi impor data, kunci akun kartu kredit dari hapus, mode gelap, batas peringatan anggaran bisa diatur, dan panel riwayat versi dirapikan (scroll, lebih ringkas).</div></div>
+      <div class="cl-item"><span class="cl-ver">v1.7</span><div class="cl-note">Status simpan real-time (Menyimpan/Tersimpan/Gagal), konfirmasi hapus transaksi, edit transaksi (tanggal/deskripsi/nominal/kategori), filter bulan/akun/kategori + pencarian, mutasi saldo (saldo berjalan per akun), dan parser baru: "kemarin", "tanggal N", dan transfer antar akun.</div></div>
+      <div class="cl-item"><span class="cl-ver">v1.8</span><div class="cl-note">Mode gelap menjadi tampilan awal. Impor data diperkuat: validasi ID/referensi, dukungan transfer, penolakan duplikasi, render input pengguna lebih aman, dan pemulihan data saat simpan impor gagal.</div></div>
+      <div class="cl-item"><span class="cl-ver">v1.9</span><div class="cl-note">Kontras dark mode ditingkatkan untuk input, filter, formulir, dan riwayat transaksi agar teks lebih nyaman dibaca.</div></div>
+    </div>
+    <div class="data-panel" id="dataPanel">
+      <p>Data tersimpan otomatis di database, terkunci ke akun username+password kamu â€” tetap ada meski di-refresh, ditutup, atau dibuka dari device lain. Ekspor/impor di bawah ini tetap berguna sebagai cadangan tambahan.</p>
+      <div class="dp-row">
+        <button id="exportDataBtn">Ekspor Data</button>
+        <label class="file-btn" for="importDataInput">Impor Data</label>
+        <input type="file" id="importDataInput" accept="application/json">
+      </div>
+    </div>
+  </div>
+
+  <div class="dashboard-grid">
+
+    <div class="col">
+      <div class="card">
+        <div class="card-tab stamp">Saldo</div>
+        <div class="balance-wrap card-inner-top">
+          <div class="balance-label">Kekayaan Bersih<br>(termasuk tabungan)</div>
+          <div class="balance-stamp" id="balanceStamp"><span class="stamp-tag">Saldo</span><span class="stamp-amount">Rp 0</span></div>
+        </div>
+        <div class="quick-stats">
+          <div class="qs-item"><span class="qs-num" id="qsTransaksi">0</span><span class="qs-label">Transaksi</span></div>
+          <div class="qs-item"><span class="qs-num" id="qsAkun">0</span><span class="qs-label">Akun</span></div>
+          <div class="qs-item"><span class="qs-num" id="qsTujuan">0</span><span class="qs-label">Tujuan Dana</span></div>
+        </div>
+      </div>
+    </div>
+
+    <div class="col">
+      <div class="card">
+        <div class="card-tab">Riwayat</div>
+        <div class="card-inner-top">
+          <div class="section-label"><span>Riwayat Transaksi</span></div>
+          <div class="filter-bar">
+            <input type="text" id="searchInput" placeholder="Cari transaksi...">
+            <input type="month" id="monthFilter">
+            <select id="accountFilter"><option value="">Semua Akun</option></select>
+            <select id="categoryFilter"><option value="">Semua Kategori</option></select>
+            <button id="resetFilterBtn" title="Reset filter">&#8635;</button>
+          </div>
+          <div class="list" id="list">
+            <div class="empty" id="emptyState"><span class="empty-icon">&#128220;</span>Belum ada transaksi. Ketik transaksi pertama kamu di atas.</div>
+          </div>
+        </div>
+      </div>
+
+      <div class="card">
+        <div class="card-tab stamp">Input</div>
+        <div class="hero-input-wrap card-inner-top">
+          <div class="hero-input-card">
+            <input id="quickInput" type="text" placeholder="Ketik transaksi... contoh: beli kopi 25000">
+            <button class="hero-send-btn" id="sendBtn" title="Kirim">&#8594;</button>
+          </div>
+          <div class="hero-hint">Enter untuk simpan. Coba: "kemarin makan 30rb", "transfer 100rb dari debit ke tunai", "gaji 5 juta tanggal 25"</div>
+          <div class="hero-feedback" id="feedback"></div>
+          <div class="hero-clarify" id="clarify">
+            <div class="cq" id="clarifyQuestion"></div>
+            <div class="options" id="clarifyOptions"></div>
+            <button class="cancel" id="clarifyCancel">Batal</button>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <div class="col">
+      <div class="card">
+        <div class="card-tab">Total</div>
+        <div class="card-inner-top">
+          <div class="section-label"><span>Ringkasan Total</span></div>
+          <div class="summary-row income"><span>Total Masuk</span><span id="totalIncome">Rp 0</span></div>
+          <div class="summary-row outcome"><span>Total Keluar</span><span id="totalOutcome">Rp 0</span></div>
+          <div class="summary-row debt"><span>Utang Kartu Kredit</span><span id="totalDebt">Rp 0</span></div>
+          <div class="summary-row goal"><span>Total Tabungan</span><span id="totalGoalSaved">Rp 0</span></div>
+          <div class="summary-row total"><span>Kekayaan Bersih</span><span id="totalBalance">Rp 0</span></div>
+        </div>
+      </div>
+
+      <div class="card">
+        <div class="card-tab stamp">AI Ringkasan</div>
+        <div class="card-inner-top">
+          <div class="section-label">
+            <span>Ringkasan Bulan Ini</span>
+            <button class="manage-btn" id="toggleBudget">Anggaran</button>
+          </div>
+          <div id="aiBody"></div>
+          <div class="budget-panel" id="budgetPanel">
+            <div class="budget-form-grid">
+              <label class="full-row">Anggaran bulanan total (Rp)</label>
+              <input class="full-row" type="number" id="monthlyBudgetInput" placeholder="contoh: 3000000" min="0">
+              <label class="full-row">Batas peringatan (%) â€” patokan kapan status jadi "Waspada"</label>
+              <input class="full-row" type="number" id="budgetWarnPctInput" placeholder="70" min="1" max="99" value="70">
+            </div>
+            <div class="cat-title">Anggaran per kategori (opsional)</div>
+            <div class="budget-form-grid" id="catBudgetList"></div>
+            <button class="save" id="saveBudgetBtn">Simpan Anggaran</button>
+          </div>
+        </div>
+      </div>
+    </div>
+
+  </div>
+
+  <div class="modal-overlay" id="editEntryModalOverlay">
+    <div class="modal-box">
+      <button class="modal-close" id="closeEditEntryModal">&times;</button>
+      <div class="modal-title">Edit Transaksi</div>
+      <div class="modal-subtitle">Akun/jenis transaksi tidak bisa diubah di sini â€” hapus &amp; catat ulang kalau perlu ganti itu.</div>
+      <div class="budget-form-grid">
+        <label class="full-row">Tanggal &amp; waktu</label>
+        <input class="full-row" type="datetime-local" id="editEntryDate">
+        <label class="full-row">Deskripsi</label>
+        <input class="full-row" type="text" id="editEntryDesc">
+        <label class="full-row">Nominal (Rp)</label>
+        <input class="full-row" type="number" id="editEntryAmount" min="0">
+        <label class="full-row" id="editEntryCatLabel">Kategori</label>
+        <input class="full-row" type="text" id="editEntryCat">
+      </div>
+      <button class="save" id="saveEditEntryBtn">Simpan Perubahan</button>
+    </div>
+  </div>
+
+  <div class="modal-overlay" id="accountsModalOverlay">
+    <div class="modal-box">
+      <button class="modal-close" id="closeAccountsModal">&times;</button>
+      <div class="modal-title">Kelola Akun</div>
+      <div class="modal-subtitle">Tunai, Debit, QRIS, Kartu Kredit â€” atau tambah akun bank kamu sendiri.</div>
+      <div class="accounts-list" id="accountsRow"></div>
+      <div class="manage-panel open" id="managePanel">
+        <div id="manageList"></div>
+        <div class="add-account-form">
+          <input type="text" id="newAccName" placeholder="Nama akun baru, contoh: BCA">
+          <select id="newAccType">
+            <option value="wallet">Tunai/Debit/QRIS</option>
+            <option value="credit">Kartu Kredit</option>
+          </select>
+          <button id="addAccBtn">Tambah</button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div class="modal-overlay" id="goalsModalOverlay">
+    <div class="modal-box">
+      <button class="modal-close" id="closeGoalsModal">&times;</button>
+      <div class="modal-title">Rencana Dana</div>
+      <div class="modal-subtitle">Dana darurat, dana haji, atau tujuan besar lainnya â€” nabung lewat input cepat, pantau progresnya di sini.</div>
+      <div id="goalsList"></div>
+      <div class="goal-panel open" id="goalPanel">
+        <div class="add-account-form">
+          <input type="text" id="newGoalName" placeholder="Nama tujuan, contoh: Dana Darurat">
+          <input type="number" id="newGoalTarget" placeholder="Target Rp" min="0">
+          <input type="date" id="newGoalDate">
+          <button id="addGoalBtn">Tambah</button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div class="modal-overlay" id="splitModalOverlay">
+    <div class="modal-box">
+      <button class="modal-close" id="closeSplitModal">&times;</button>
+      <div class="modal-title">Splitbill Calculator</div>
+      <div class="modal-subtitle">Hitung berapa yang harus dibayar tiap orang, termasuk pajak &amp; service charge.</div>
+
+      <div id="splitParticipantsList"></div>
+      <button class="split-add-btn" id="addParticipantBtn">+ Tambah Orang</button>
+      <div class="split-pct-row">
+        <div>
+          <label>Pajak (%)</label>
+          <input type="number" id="taxPctInput" value="11" min="0">
+        </div>
+        <div>
+          <label>Service Charge (%)</label>
+          <input type="number" id="servicePctInput" value="5" min="0">
+        </div>
+      </div>
+      <div class="split-breakdown" id="splitBreakdown"></div>
+      <div class="split-actions">
+        <button class="print-btn" id="printSplitBtn">Cetak Struk</button>
+        <button class="record-btn" id="recordSplitBtn">Catat sebagai Pengeluaran</button>
+      </div>
+    </div>
+  </div>
+
+  <div class="app-footer">IOT â€” Income Outcome Tracing &middot; oleh <span class="stamp-name">Scalista</span></div>
+</div>
+
+<div id="printReceipt"></div>
+
+<script>
+(function(){
+  const ACC_KEY = 'accounts';
+  const ENTRY_KEY = 'ledger-entries';
+  const BUDGET_KEY = 'budget';
+  const GOALS_KEY = 'goals';
+  const SETTINGS_KEY = 'settings';
+  let accounts = [];
+  let entries = [];
+  let goals = [];
+  let budget = { monthly: null, categories: {} };
+  let settings = { darkMode: true, budgetWarnPct: 70 };
+  let pending = null;
+  let splitParticipants = [];
+
+  const listEl = document.getElementById('list');
+  const emptyEl = document.getElementById('emptyState');
+  const inputEl = document.getElementById('quickInput');
+  const sendBtn = document.getElementById('sendBtn');
+  const feedbackEl = document.getElementById('feedback');
+  const balanceStampEl = document.getElementById('balanceStamp');
+  const qsTransaksiEl = document.getElementById('qsTransaksi');
+  const qsAkunEl = document.getElementById('qsAkun');
+  const qsTujuanEl = document.getElementById('qsTujuan');
+  const totalIncomeEl = document.getElementById('totalIncome');
+  const totalOutcomeEl = document.getElementById('totalOutcome');
+  const totalDebtEl = document.getElementById('totalDebt');
+  const totalGoalSavedEl = document.getElementById('totalGoalSaved');
+  const totalBalanceEl = document.getElementById('totalBalance');
+  const todayDateEl = document.getElementById('todayDate');
+  const accountsRowEl = document.getElementById('accountsRow');
+  const accountsModalOverlayEl = document.getElementById('accountsModalOverlay');
+  const closeAccountsModalBtn = document.getElementById('closeAccountsModal');
+  const managePanelEl = document.getElementById('managePanel');
+  const manageListEl = document.getElementById('manageList');
+  const newAccNameEl = document.getElementById('newAccName');
+  const newAccTypeEl = document.getElementById('newAccType');
+  const addAccBtn = document.getElementById('addAccBtn');
+  const toggleChangelogBtn = document.getElementById('toggleChangelog');
+  const toggleDarkModeBtn = document.getElementById('toggleDarkMode');
+  const changelogPanelEl = document.getElementById('changelogPanel');
+  const toggleDataBtn = document.getElementById('toggleData');
+  const dataPanelEl = document.getElementById('dataPanel');
+  const exportDataBtn = document.getElementById('exportDataBtn');
+  const importDataInputEl = document.getElementById('importDataInput');
+  const clarifyEl = document.getElementById('clarify');
+  const clarifyQuestionEl = document.getElementById('clarifyQuestion');
+  const clarifyOptionsEl = document.getElementById('clarifyOptions');
+  const clarifyCancelBtn = document.getElementById('clarifyCancel');
+  const toggleBudgetBtn = document.getElementById('toggleBudget');
+  const budgetPanelEl = document.getElementById('budgetPanel');
+  const monthlyBudgetInputEl = document.getElementById('monthlyBudgetInput');
+  const budgetWarnPctInputEl = document.getElementById('budgetWarnPctInput');
+  const catBudgetListEl = document.getElementById('catBudgetList');
+  const saveBudgetBtn = document.getElementById('saveBudgetBtn');
+  const aiBodyEl = document.getElementById('aiBody');
+  const goalPanelEl = document.getElementById('goalPanel');
+  const goalsModalOverlayEl = document.getElementById('goalsModalOverlay');
+  const closeGoalsModalBtn = document.getElementById('closeGoalsModal');
+  const toggleMenuBtn = document.getElementById('toggleMenu');
+  const menuDropdownEl = document.getElementById('menuDropdown');
+  const goalsListEl = document.getElementById('goalsList');
+  const newGoalNameEl = document.getElementById('newGoalName');
+  const newGoalTargetEl = document.getElementById('newGoalTarget');
+  const newGoalDateEl = document.getElementById('newGoalDate');
+  const addGoalBtn = document.getElementById('addGoalBtn');
+  const splitParticipantsListEl = document.getElementById('splitParticipantsList');
+  const addParticipantBtn = document.getElementById('addParticipantBtn');
+  const taxPctInputEl = document.getElementById('taxPctInput');
+  const servicePctInputEl = document.getElementById('servicePctInput');
+  const splitBreakdownEl = document.getElementById('splitBreakdown');
+  const printSplitBtn = document.getElementById('printSplitBtn');
+  const recordSplitBtn = document.getElementById('recordSplitBtn');
+  const printReceiptEl = document.getElementById('printReceipt');
+  const searchInputEl = document.getElementById('searchInput');
+  const monthFilterEl = document.getElementById('monthFilter');
+  const accountFilterEl = document.getElementById('accountFilter');
+  const categoryFilterEl = document.getElementById('categoryFilter');
+  const resetFilterBtn = document.getElementById('resetFilterBtn');
+  const editEntryModalOverlayEl = document.getElementById('editEntryModalOverlay');
+  const closeEditEntryModalBtn = document.getElementById('closeEditEntryModal');
+  const editEntryDateEl = document.getElementById('editEntryDate');
+  const editEntryDescEl = document.getElementById('editEntryDesc');
+  const editEntryAmountEl = document.getElementById('editEntryAmount');
+  const editEntryCatEl = document.getElementById('editEntryCat');
+  const editEntryCatLabelEl = document.getElementById('editEntryCatLabel');
+  const saveEditEntryBtn = document.getElementById('saveEditEntryBtn');
+  let editingEntryId = null;
+  const splitModalOverlayEl = document.getElementById('splitModalOverlay');
+  const closeSplitModalBtn = document.getElementById('closeSplitModal');
+  const storageBannerEl = document.getElementById('storageBanner');
+  const guestBannerEl = document.getElementById('guestBanner');
+  const loggedInBannerEl = document.getElementById('loggedInBanner');
+  const guestSaveUsernameEl = document.getElementById('guestSaveUsername');
+  const guestSaveBtn = document.getElementById('guestSaveBtn');
+  const guestSaveStatusEl = document.getElementById('guestSaveStatus');
+  const loginGateEl = document.getElementById('loginGate');
+  const usernameInputEl = document.getElementById('usernameInput');
+  const loginBtnEl = document.getElementById('loginBtn');
+  const guestBtnEl = document.getElementById('guestBtn');
+  const loginErrorEl = document.getElementById('loginError');
+
+  const passwordInputEl = document.getElementById('passwordInput');
+  const guestSavePasswordEl = document.getElementById('guestSavePassword');
+
+  // ---- Multi-user identification lewat username + password (diverifikasi di server) ----
+  // Tidak disimpan di browser (tanpa localStorage), jadi tiap buka halaman akan diminta login lagi.
+  let userId = null;
+  const userBadgeEl = document.getElementById('userBadge');
+  function renderUserBadge(){
+    userBadgeEl.hidden = !userId;
+    userBadgeEl.textContent = userId ? ('@' + userId) : '';
+    loggedInBannerEl.hidden = !userId;
+    loggedInBannerEl.textContent = userId ? ('Masuk sebagai @' + userId) : '';
+    if(userId) guestBannerEl.classList.remove('show');
+  }
+  let isGuest = false;
+  function sanitizeUsername(raw){
+    return raw.trim().toLowerCase().replace(/\s+/g, '-').replace(/[^a-z0-9\-_.]/g, '');
+  }
+  async function doLogin(){
+    const clean = sanitizeUsername(usernameInputEl.value);
+    const pass = passwordInputEl.value;
+    loginErrorEl.textContent = '';
+    if(!clean || !pass){
+      loginErrorEl.textContent = 'Username dan password wajib diisi.';
+      return;
+    }
+    if(!supabaseClient){
+      loginErrorEl.textContent = 'Database belum tersambung (cek SUPABASE_ANON_KEY).';
+      return;
+    }
+    loginBtnEl.disabled = true;
+    loginBtnEl.textContent = 'Memeriksa...';
+    guestSaveStatusEl.textContent = 'Menyimpan dataâ€¦';
+    try{
+      const { data, error } = await supabaseClient.rpc('login_or_register', { p_username: clean, p_password: pass });
+      if(error) throw error;
+      if(data === 'wrong_password'){
+        loginErrorEl.textContent = 'Password salah untuk username ini.';
+        return;
+      }
+      if(data === 'invalid'){
+        loginErrorEl.textContent = 'Username/password tidak valid.';
+        return;
+      }
+      userId = clean;
+      userPassword = pass;
+      renderUserBadge();
+      guestBannerEl.classList.remove('show');
+      isGuest = false;
+      document.body.classList.remove('guest-mode');
+      loginGateEl.classList.add('hidden');
+      loadData();
+    }catch(err){
+      loginErrorEl.textContent = 'Gagal menghubungi database. Pastikan fungsi SQL sudah dijalankan.';
+    }finally{
+      loginBtnEl.disabled = false;
+      loginBtnEl.textContent = 'Masuk / Daftar';
+    }
+  }
+  function doGuestLogin(){
+    isGuest = true;
+    document.body.classList.add('guest-mode');
+    userId = null;
+    renderUserBadge();
+    userPassword = null;
+    loginGateEl.classList.add('hidden');
+    guestBannerEl.classList.add('show');
+    // Mode tamu: mulai dari data kosong/default, tidak diambil dari database, dan tidak disimpan
+    // sampai pengguna klik "Simpan" dengan username + password.
+    accounts = defaultAccounts();
+    entries = [];
+    budget = { monthly: null, categories: {} };
+    goals = [];
+    settings = { darkMode: true, budgetWarnPct: 70 };
+    document.body.classList.add('dark');
+    toggleDarkModeBtn.innerHTML = '&#9788; terang';
+    if(budgetWarnPctInputEl) budgetWarnPctInputEl.value = 70;
+    splitParticipants = [
+      { id: uid('sp_'), name: '', subtotal: '' },
+      { id: uid('sp_'), name: '', subtotal: '' }
+    ];
+    renderCatBudgetInputs();
+    render();
+    renderSplitParticipants();
+    renderSplitBreakdown();
+  }
+  async function saveGuestDataAs(){
+    const clean = sanitizeUsername(guestSaveUsernameEl.value);
+    const pass = guestSavePasswordEl.value;
+    if(!clean || !pass){
+      setFeedback('Isi username dan password dulu.', 'hero-feedback outcome');
+      return;
+    }
+    if(!supabaseClient){
+      setFeedback('Database belum tersambung.', 'hero-feedback outcome');
+      return;
+    }
+    guestSaveBtn.disabled = true;
+    const guestSaveLabel = guestSaveBtn.textContent;
+    guestSaveBtn.textContent = 'Menyimpanâ€¦';
+    try{
+      const { data, error } = await supabaseClient.rpc('login_or_register', { p_username: clean, p_password: pass });
+      if(error) throw error;
+      if(data === 'wrong_password'){
+        setFeedback('Username itu sudah dipakai dan password tidak cocok â€” coba username lain.', 'hero-feedback outcome');
+        return;
+      }
+      userId = clean;
+      userPassword = pass;
+      renderUserBadge();
+      isGuest = false;
+      document.body.classList.remove('guest-mode');
+      const saved = [await saveAccounts(), await saveEntries(), await saveBudget(), await saveGoals(), await saveSettings()];
+      if(!saved.every(Boolean)) return;
+      guestSaveStatusEl.textContent = '';
+      guestSaveUsernameEl.value = '';
+      guestSavePasswordEl.value = '';
+      guestBannerEl.classList.remove('show');
+      setFeedback('Data tersimpan ke username "' + clean + '". Lain kali login dengan username & password ini.', 'hero-feedback payment');
+    }catch(err){
+      guestSaveStatusEl.textContent = 'Gagal menyimpan. Coba lagi.';
+      setFeedback('Gagal menyimpan â€” coba lagi.', 'hero-feedback outcome');
+    }finally{
+      guestSaveBtn.disabled = false;
+      guestSaveBtn.textContent = guestSaveLabel;
+    }
+  }
+  loginBtnEl.addEventListener('click', doLogin);
+  usernameInputEl.addEventListener('keydown', (e) => { if(e.key === 'Enter') passwordInputEl.focus(); });
+  passwordInputEl.addEventListener('keydown', (e) => { if(e.key === 'Enter') doLogin(); });
+  guestBtnEl.addEventListener('click', doGuestLogin);
+  guestSaveBtn.addEventListener('click', saveGuestDataAs);
+  guestSavePasswordEl.addEventListener('keydown', (e) => { if(e.key === 'Enter') saveGuestDataAs(); });
+
+  // ---- Supabase connection ----
+  // Isi SUPABASE_ANON_KEY dengan anon public key dari Settings > API di dashboard Supabase kamu.
+  const SUPABASE_URL = 'https://lxymyrtbdkrpbplymtrz.supabase.co';
+  const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Imx4eW15cnRiZGtycGJwbHltdHJ6Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODQ2MDM1MDYsImV4cCI6MjEwMDE3OTUwNn0.rNVUW5GCNxJlCqXXWbML_O45KCahA3A_eyeQeQ2L-5Y';
+
+  let supabaseClient = null;
+  let storageAvailable = false;
+  try{
+    if(SUPABASE_ANON_KEY && SUPABASE_ANON_KEY !== 'PASTE_ANON_KEY_KAMU_DI_SINI' && window.supabase){
+      supabaseClient = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+      storageAvailable = true;
+    }
+  }catch(err){
+    storageAvailable = false;
+  }
+
+  // Password disimpan di memori saja (tidak pernah ke browser storage), dikirim ke Supabase
+  // lewat RPC yang memverifikasi hash di server â€” bukan dicek di JavaScript.
+  let userPassword = null;
+
+  const saveStatusEl = document.getElementById('saveStatus');
+  let saveStatusTimer = null;
+  function setSaveStatus(state){
+    saveStatusEl.classList.remove('saving', 'saved', 'error');
+    saveStatusEl.classList.add(state, 'show');
+    clearTimeout(saveStatusTimer);
+    if(state === 'saving'){
+      saveStatusEl.innerHTML = '<span class="dot"></span>Menyimpan...';
+    } else if(state === 'saved'){
+      saveStatusEl.innerHTML = '<span class="dot"></span>Tersimpan';
+      saveStatusTimer = setTimeout(() => { saveStatusEl.classList.remove('show'); }, 2500);
+    } else if(state === 'error'){
+      saveStatusEl.innerHTML = '<span class="dot"></span>Gagal tersimpan \u2014 coba lagi';
+    }
+  }
+
+  async function kvGet(key){
+    if(!supabaseClient) throw new Error('Supabase belum tersambung');
+    const { data, error } = await supabaseClient.rpc('kv_get', { p_username: userId, p_password: userPassword, p_key: key });
+    if(error) throw error;
+    return data || null;
+  }
+  async function kvSet(key, value){
+    if(!supabaseClient) throw new Error('Supabase belum tersambung');
+    setSaveStatus('saving');
+    try{
+      const { error } = await supabaseClient.rpc('kv_set', { p_username: userId, p_password: userPassword, p_key: key, p_value: value });
+      if(error) throw error;
+      setSaveStatus('saved');
+    }catch(err){
+      setSaveStatus('error');
+      throw err;
+    }
+  }
+
+  const incomeKeywords = ['gaji','terima','diterima','dapat','masuk','bonus','jual','terjual','freelance','untung','cashback','refund','honor','thr','transfer masuk','dividen','hadiah'];
+  const paymentKeywords = ['bayar tagihan','bayar kartu kredit','bayar cc','bayar kredit','lunasi kartu kredit','lunasi tagihan','bayar tagihan kartu kredit'];
+  const savingKeywords = ['nabung','tabung','sisihkan','alokasikan','alokasi','setor tabungan','setor dana'];
+  const withdrawGoalKeywords = ['ambil dana','tarik dana','cairkan dana','gunakan dana','pakai tabungan','ambil tabungan','tarik tabungan'];
+
+  const outcomeCategories = ['Makanan & Minuman','Transportasi','Belanja','Tagihan','Hiburan','Kesehatan','Lainnya'];
+
+  const categoryRules = {
+    income: [
+      { cat:'Gaji', words:['gaji','honor','thr'] },
+      { cat:'Penjualan', words:['jual','terjual'] },
+      { cat:'Bonus', words:['bonus','hadiah','cashback','refund'] },
+      { cat:'Freelance', words:['freelance','proyek','project'] },
+    ],
+    outcome: [
+      { cat:'Makanan & Minuman', words:['makan','minum','kopi','nasi','ayam','snack','jajan','restoran','warteg','kfc','mcd','boba','teh','sarapan'] },
+      { cat:'Transportasi', words:['bensin','ojek','gojek','grab','parkir','tol','angkot','busway','krl','mrt','transport'] },
+      { cat:'Belanja', words:['beli baju','skincare','belanja','baju','sepatu','tas','shopee','tokopedia'] },
+      { cat:'Tagihan', words:['listrik','wifi','pulsa','token','tagihan','pdam','internet','langganan','subscription'] },
+      { cat:'Hiburan', words:['nonton','bioskop','game','netflix','spotify','hiburan'] },
+      { cat:'Kesehatan', words:['obat','dokter','apotek','vitamin'] },
+    ]
+  };
+
+  function uid(prefix){ return prefix + Date.now() + Math.random().toString(36).slice(2,7); }
+
+  function defaultAccounts(){
+    return [
+      { id:'acc_tunai', name:'Tunai', type:'wallet' },
+      { id:'acc_debit', name:'Debit', type:'wallet' },
+      { id:'acc_qris', name:'QRIS', type:'wallet' },
+      { id:'acc_kredit', name:'Kartu Kredit', type:'credit' }
+    ];
+  }
+
+  function formatRupiah(n){
+    const sign = n < 0 ? '-' : '';
+    const abs = Math.abs(Math.round(n));
+    return sign + 'Rp ' + abs.toLocaleString('id-ID');
+  }
+
+  function detectCategory(text, type){
+    const rules = categoryRules[type] || [];
+    for(const rule of rules){
+      for(const w of rule.words){ if(text.includes(w)) return rule.cat; }
+    }
+    return type === 'income' ? 'Pemasukan Lain' : 'Lainnya';
+  }
+
+  function extractAmount(text){
+    const amountRegex = /(\d[\d.,]*)\s*(ribu|rb|k|juta|jt)?/gi;
+    let match, matches = [];
+    while((match = amountRegex.exec(text)) !== null){ matches.push(match); }
+    if(matches.length === 0) return null;
+    const last = matches[matches.length - 1];
+    let cleanNum = last[1].replace(/[.,]/g, '');
+    let value = parseInt(cleanNum, 10);
+    if(isNaN(value)) return null;
+    const suffix = last[2];
+    if(suffix === 'ribu' || suffix === 'rb' || suffix === 'k') value *= 1000;
+    else if(suffix === 'juta' || suffix === 'jt') value *= 1000000;
+    return { value, match: last };
+  }
+
+  function detectAccountFromText(text, filterType){
+    let pool = filterType ? accounts.filter(a => a.type === filterType) : accounts;
+    let matched = pool.find(a => text.includes(a.name.toLowerCase()));
+    if(matched) return matched;
+    if(/\bqris\b/.test(text)) matched = pool.find(a => /qris/i.test(a.name));
+    if(!matched && /kartu kredit|\bkredit\b|\bcc\b/.test(text)) matched = pool.find(a => a.type === 'credit');
+    if(!matched && /\btunai\b|\bcash\b/.test(text)) matched = pool.find(a => a.type === 'wallet' && /tunai|cash/i.test(a.name));
+    if(!matched && /\bdebit\b|\brekening\b|\btransfer\b/.test(text)) matched = pool.find(a => a.type === 'wallet' && /debit|rekening/i.test(a.name));
+    return matched || null;
+  }
+
+  function detectGoalFromText(text){
+    return goals.find(g => text.includes(g.name.toLowerCase())) || null;
+  }
+
+  function extractCustomDate(text){
+    const now = new Date();
+    let ts = null;
+    let cleaned = text;
+    if(/\bkemarin\b/.test(text)){
+      const d = new Date(now); d.setDate(d.getDate() - 1);
+      ts = d.getTime();
+      cleaned = cleaned.replace(/\bkemarin\b/, '').trim();
+    } else if(/\bhari ini\b/.test(text)){
+      cleaned = cleaned.replace(/\bhari ini\b/, '').trim();
+    } else {
+      const m = text.match(/\btanggal\s+(\d{1,2})\b/);
+      if(m){
+        const day = parseInt(m[1], 10);
+        if(day >= 1 && day <= 31){
+          const d = new Date(now.getFullYear(), now.getMonth(), day, now.getHours(), now.getMinutes());
+          ts = d.getTime();
+          cleaned = cleaned.replace(m[0], '').trim();
+        }
+      }
+    }
+    cleaned = cleaned.replace(/\s{2,}/g, ' ').trim();
+    return { ts, cleaned };
+  }
+
+  function parseInput(raw){
+    let text = raw.trim().toLowerCase();
+    if(!text) return null;
+
+    const dateInfo = extractCustomDate(text);
+    text = dateInfo.cleaned;
+    const customTs = dateInfo.ts;
+
+    const transferPhrase = text.match(/dari\s+(.+?)\s+ke\s+(.+)/);
+    const isTransfer = /\btransfer\b|\bpindahkan\b|\bpindah dana\b/.test(text) && transferPhrase;
+
+    const isWithdrawGoal = !isTransfer && withdrawGoalKeywords.some(kw => text.includes(kw));
+    const isSaving = !isTransfer && !isWithdrawGoal && savingKeywords.some(kw => text.includes(kw));
+    const isPayment = !isTransfer && !isWithdrawGoal && !isSaving && paymentKeywords.some(kw => text.includes(kw));
+
+    const amountInfo = extractAmount(text);
+    if(!amountInfo) return null;
+    const amount = amountInfo.value;
+    const last = amountInfo.match;
+    let descRaw = (text.slice(0, last.index) + text.slice(last.index + last[0].length)).trim().replace(/\s{2,}/g,' ');
+
+    if(isTransfer){
+      const walletAccounts = accounts.filter(a => a.type === 'wallet');
+      const fromText = transferPhrase[1];
+      const toText = transferPhrase[2];
+      let fromAcc = walletAccounts.find(a => fromText.includes(a.name.toLowerCase()));
+      let toAcc = walletAccounts.find(a => toText.includes(a.name.toLowerCase()));
+      return {
+        type: 'transfer', amount, ts: customTs,
+        accountId: fromAcc ? fromAcc.id : null,
+        toAccountId: toAcc ? toAcc.id : null,
+        category: 'Transfer Antar Akun',
+        desc: toAcc ? ('Transfer ke ' + toAcc.name) : 'Transfer Antar Akun'
+      };
+    }
+
+    if(isSaving || isWithdrawGoal){
+      let g = detectGoalFromText(text);
+      if(!g && goals.length === 1) g = goals[0];
+      const walletAccounts = accounts.filter(a => a.type === 'wallet');
+      let acc = detectAccountFromText(text, 'wallet');
+      if(!acc && walletAccounts.length === 1) acc = walletAccounts[0];
+      const label = isSaving ? 'Nabung ke ' : 'Ambil dari ';
+      return {
+        type: isSaving ? 'saving' : 'withdraw_goal',
+        amount, ts: customTs,
+        category: isSaving ? 'Tabungan' : 'Penarikan Tabungan',
+        desc: g ? (label + g.name) : (isSaving ? 'Nabung ke Tabungan' : 'Ambil dari Tabungan'),
+        goalId: g ? g.id : null,
+        accountId: acc ? acc.id : null
+      };
+    }
+
+    if(isPayment){
+      const creditAccounts = accounts.filter(a => a.type === 'credit');
+      let target = detectAccountFromText(text, 'credit');
+      if(!target && creditAccounts.length === 1) target = creditAccounts[0];
+      const walletAccounts = accounts.filter(a => a.type === 'wallet');
+      let source = detectAccountFromText(text, 'wallet');
+      if(!source && walletAccounts.length === 1) source = walletAccounts[0];
+      return {
+        type:'payment', amount, ts: customTs,
+        accountId: source ? source.id : null,
+        toAccountId: target ? target.id : null,
+        category:'Bayar Tagihan Kartu Kredit',
+        desc: target ? ('Bayar Tagihan ' + target.name) : 'Bayar Tagihan Kartu Kredit'
+      };
+    }
+
+    let matchedAcc = detectAccountFromText(text, null);
+    let type = 'outcome';
+    for(const kw of incomeKeywords){ if(text.includes(kw)){ type = 'income'; break; } }
+    const category = detectCategory(text, type);
+    let desc = descRaw || 'Transaksi';
+    desc = desc.charAt(0).toUpperCase() + desc.slice(1);
+
+    return { type, amount, ts: customTs, accountId: matchedAcc ? matchedAcc.id : null, category, desc };
+  }
+
+  function computeBalances(){
+    const balances = {};
+    accounts.forEach(a => balances[a.id] = 0);
+    entries.forEach(e => {
+      if(e.type === 'payment'){
+        if(balances[e.accountId] !== undefined) balances[e.accountId] -= e.amount;
+        if(balances[e.toAccountId] !== undefined) balances[e.toAccountId] -= e.amount;
+      } else if(e.type === 'transfer'){
+        if(balances[e.accountId] !== undefined) balances[e.accountId] -= e.amount;
+        if(balances[e.toAccountId] !== undefined) balances[e.toAccountId] += e.amount;
+      } else if(e.type === 'saving'){
+        if(balances[e.accountId] !== undefined) balances[e.accountId] -= e.amount;
+      } else if(e.type === 'withdraw_goal'){
+        if(balances[e.accountId] !== undefined) balances[e.accountId] += e.amount;
+      } else {
+        const acc = accounts.find(a => a.id === e.accountId);
+        if(!acc) return;
+        if(acc.type === 'credit'){
+          balances[e.accountId] += (e.type === 'outcome' ? e.amount : -e.amount);
+        } else {
+          balances[e.accountId] += (e.type === 'income' ? e.amount : -e.amount);
+        }
+      }
+    });
+    return balances;
+  }
+
+  function computeGoalsSaved(){
+    const saved = {};
+    goals.forEach(g => saved[g.id] = 0);
+    entries.forEach(e => {
+      if(e.type === 'saving' && saved[e.goalId] !== undefined) saved[e.goalId] += e.amount;
+      if(e.type === 'withdraw_goal' && saved[e.goalId] !== undefined) saved[e.goalId] -= e.amount;
+    });
+    return saved;
+  }
+
+  function escapeHtml(str){
+    const div = document.createElement('div');
+    div.textContent = str;
+    return div.innerHTML;
+  }
+
+  function appendOption(select, value, label){
+    const option = document.createElement('option');
+    option.value = String(value);
+    option.textContent = String(label);
+    select.appendChild(option);
+  }
+
+  function renderAccountChips(balances){
+    accountsRowEl.innerHTML = '';
+    accounts.forEach(a => {
+      const bal = balances[a.id] || 0;
+      const chip = document.createElement('div');
+      chip.className = 'account-chip';
+      const isDebt = a.type === 'credit';
+      const cls = isDebt && bal > 0 ? 'debt' : 'ok';
+      chip.innerHTML = `
+        <div class="name-wrap">
+          <div class="name">${escapeHtml(a.name)}</div>
+          <div class="type">${a.type === 'credit' ? 'Kartu Kredit' : 'Tunai/Debit'}</div>
+        </div>
+        <div class="bal ${cls}">${isDebt ? (bal > 0 ? 'Utang ' + formatRupiah(bal) : 'Lunas') : formatRupiah(bal)}</div>
+      `;
+      accountsRowEl.appendChild(chip);
+    });
+  }
+
+  function renderManageList(){
+    manageListEl.innerHTML = '';
+    accounts.forEach(a => {
+      const row = document.createElement('div');
+      row.className = 'manage-list-item';
+      const name = document.createElement('span');
+      name.textContent = String(a.name || 'Akun');
+      const type = document.createElement('span');
+      type.className = 'mtype';
+      type.textContent = a.type === 'credit' ? 'Kartu Kredit' : 'Tunai/Debit';
+      name.appendChild(type);
+      row.appendChild(name);
+      if(a.type === 'credit'){
+        const locked = document.createElement('span');
+        locked.className = 'locked-tag';
+        locked.title = 'Akun kartu kredit dikunci, tidak bisa dihapus';
+        locked.textContent = '\ud83d\udd12 Terkunci';
+        row.appendChild(locked);
+      } else {
+        const remove = document.createElement('button');
+        remove.className = 'del-btn';
+        remove.dataset.id = String(a.id);
+        remove.textContent = 'HAPUS';
+        row.appendChild(remove);
+      }
+      manageListEl.appendChild(row);
+    });
+  }
+
+  function getMonthRange(){
+    const now = new Date();
+    const y = now.getFullYear(), m = now.getMonth();
+    const start = new Date(y, m, 1).getTime();
+    const end = new Date(y, m + 1, 1).getTime();
+    const daysInMonth = new Date(y, m + 1, 0).getDate();
+    const daysElapsed = now.getDate();
+    return { start, end, daysInMonth, daysElapsed };
+  }
+
+  function computeMonthlySpending(){
+    const { start, end } = getMonthRange();
+    const monthEntries = entries.filter(e => e.type === 'outcome' && e.ts >= start && e.ts < end);
+    const total = monthEntries.reduce((s,e) => s + e.amount, 0);
+    const byCategory = {};
+    monthEntries.forEach(e => { byCategory[e.category] = (byCategory[e.category] || 0) + e.amount; });
+    return { total, byCategory };
+  }
+
+  function computeMonthlyGoalSaving(goalId){
+    const { start, end } = getMonthRange();
+    let total = 0;
+    entries.forEach(e => {
+      if(e.goalId === goalId && e.ts >= start && e.ts < end){
+        if(e.type === 'saving') total += e.amount;
+        if(e.type === 'withdraw_goal') total -= e.amount;
+      }
+    });
+    return total;
+  }
+
+  function renderAiSummary(){
+    const { daysInMonth, daysElapsed } = getMonthRange();
+    const { total, byCategory } = computeMonthlySpending();
+
+    let topCat = null, topAmt = 0;
+    Object.keys(byCategory).forEach(c => { if(byCategory[c] > topAmt){ topAmt = byCategory[c]; topCat = c; } });
+
+    let html = '';
+    const monthlyBudget = budget.monthly;
+
+    if(!monthlyBudget){
+      html += `<div class="ai-line">Belum ada anggaran bulanan yang diatur. Pengeluaran bulan ini: <span class="num">${formatRupiah(total)}</span>.</div>`;
+      if(topCat){
+        html += `<div class="ai-line">Kategori terbesar sejauh ini: <span class="num">${escapeHtml(topCat)}</span> (${formatRupiah(topAmt)}).</div>`;
+      }
+      html += `<div class="ai-line">Klik "Anggaran" biar IOT bisa mengingatkan kalau pengeluaran mulai berlebihan.</div>`;
+    } else {
+      const pct = Math.min(100, Math.round((total / monthlyBudget) * 100));
+      const remaining = monthlyBudget - total;
+      const dailyAvg = daysElapsed > 0 ? total / daysElapsed : 0;
+      const projected = dailyAvg * daysInMonth;
+      const daysLeft = Math.max(0, daysInMonth - daysElapsed);
+      const dailyAllowance = daysLeft > 0 && remaining > 0 ? remaining / daysLeft : 0;
+
+      let statusClass = 'ok', statusText = 'Aman';
+      const ratio = total / monthlyBudget;
+      const warnRatio = (settings.budgetWarnPct || 70) / 100;
+      if(ratio >= 1){ statusClass = 'over'; statusText = 'Melebihi Anggaran'; }
+      else if(ratio >= warnRatio){ statusClass = 'warn'; statusText = 'Waspada'; }
+
+      html += `<div class="ai-status ${statusClass}">${statusText} â€” ${pct}% anggaran terpakai</div>`;
+      html += `<div class="bar-track"><div class="bar-fill ${statusClass}" style="width:${pct}%"></div></div>`;
+      html += `<div class="ai-line">Terpakai <span class="num">${formatRupiah(total)}</span> dari <span class="num">${formatRupiah(monthlyBudget)}</span>.</div>`;
+
+      if(statusClass === 'over'){
+        html += `<div class="ai-line">Sudah lebih <span class="num">${formatRupiah(Math.abs(remaining))}</span> dari anggaran bulan ini.</div>`;
+        if(topCat) html += `<div class="ai-line">Porsi terbesar ada di <span class="num">${escapeHtml(topCat)}</span> (${formatRupiah(topAmt)}) â€” coba kurangi ini dulu bulan depan.</div>`;
+      } else if(statusClass === 'warn'){
+        html += `<div class="ai-line">Sisa <span class="num">${formatRupiah(remaining)}</span> untuk ${daysLeft} hari lagi (\u2248 ${formatRupiah(dailyAllowance)}/hari kalau mau pas anggaran).</div>`;
+        if(topCat) html += `<div class="ai-line">Perhatikan kategori <span class="num">${escapeHtml(topCat)}</span>, itu porsi pengeluaran terbesar sejauh ini.</div>`;
+        if(projected > monthlyBudget){
+          html += `<div class="ai-line">Kalau ritme belanja terus begini, proyeksi akhir bulan sekitar <span class="num">${formatRupiah(projected)}</span> â€” bisa lewat anggaran.</div>`;
+        }
+      } else {
+        html += `<div class="ai-line">Masih terkendali. Sisa <span class="num">${formatRupiah(remaining)}</span> untuk ${daysLeft} hari lagi.</div>`;
+        if(topCat) html += `<div class="ai-line">Kategori terbesar sejauh ini: <span class="num">${escapeHtml(topCat)}</span> (${formatRupiah(topAmt)}).</div>`;
+      }
+
+      const catWarnings = [];
+      Object.keys(budget.categories || {}).forEach(c => {
+        const limit = budget.categories[c];
+        const spent = byCategory[c] || 0;
+        if(limit && spent > limit){
+          catWarnings.push(`${c}: terpakai ${formatRupiah(spent)} dari batas ${formatRupiah(limit)}`);
+        }
+      });
+      if(catWarnings.length > 0){
+        html += `<div class="ai-warn-list">${catWarnings.map(w => `<div class="ai-warn-item">\u26a0 ${escapeHtml(w)}</div>`).join('')}</div>`;
+      }
+    }
+
+    if(goals.length > 0){
+      const goalsSaved = computeGoalsSaved();
+      const laggingGoals = [];
+      goals.forEach(g => {
+        if(!g.targetDate) return;
+        const now = new Date();
+        const target = new Date(g.targetDate);
+        const monthsLeft = Math.max(1, (target.getFullYear() - now.getFullYear()) * 12 + (target.getMonth() - now.getMonth()));
+        const remaining = g.targetAmount - (goalsSaved[g.id] || 0);
+        if(remaining <= 0) return;
+        const requiredMonthly = remaining / monthsLeft;
+        const savedThisMonth = computeMonthlyGoalSaving(g.id);
+        if(savedThisMonth < requiredMonthly * 0.9){
+          laggingGoals.push(`${g.name}: baru nabung ${formatRupiah(Math.max(0,savedThisMonth))} bulan ini, idealnya \u2248 ${formatRupiah(requiredMonthly)}/bulan biar tercapai tepat waktu.`);
+        }
+      });
+      if(laggingGoals.length > 0){
+        html += `<div class="ai-warn-list">${laggingGoals.map(w => `<div class="ai-warn-item" style="color:var(--goal)">\u25cf ${escapeHtml(w)}</div>`).join('')}</div>`;
+      }
+    }
+
+    aiBodyEl.innerHTML = html;
+  }
+
+  function renderCatBudgetInputs(){
+    catBudgetListEl.innerHTML = '';
+    outcomeCategories.forEach(cat => {
+      const val = budget.categories && budget.categories[cat] ? budget.categories[cat] : '';
+      const label = document.createElement('label');
+      label.textContent = cat;
+      const input = document.createElement('input');
+      input.type = 'number'; input.min = '0'; input.placeholder = 'tanpa batas';
+      input.setAttribute('data-cat', cat);
+      input.value = val;
+      catBudgetListEl.appendChild(label);
+      catBudgetListEl.appendChild(input);
+    });
+  }
+
+  function renderGoals(){
+    const goalsSaved = computeGoalsSaved();
+    goalsListEl.innerHTML = '';
+    if(goals.length === 0){
+      goalsListEl.innerHTML = '<div class="goals-empty"><span class="empty-icon">&#127919;</span>Belum ada rencana dana. Tambah tujuan seperti "Dana Darurat" atau "Dana Haji" lewat tombol Kelola.</div>';
+      return;
+    }
+    goals.forEach(g => {
+      const saved = goalsSaved[g.id] || 0;
+      const pct = g.targetAmount > 0 ? Math.min(100, Math.round((saved / g.targetAmount) * 100)) : 0;
+      let deadlineText = '';
+      let suggestText = '';
+      if(g.targetDate){
+        const now = new Date();
+        const target = new Date(g.targetDate);
+        const monthsLeft = Math.max(1, (target.getFullYear() - now.getFullYear()) * 12 + (target.getMonth() - now.getMonth()));
+        const remaining = g.targetAmount - saved;
+        deadlineText = 'Target: ' + target.toLocaleDateString('id-ID', { day:'numeric', month:'long', year:'numeric' });
+        if(remaining > 0){
+          const requiredMonthly = remaining / monthsLeft;
+          suggestText = 'Perlu nabung \u2248 ' + formatRupiah(requiredMonthly) + '/bulan (' + monthsLeft + ' bulan lagi).';
+        } else {
+          suggestText = 'Target sudah tercapai!';
+        }
+      }
+      const card = document.createElement('div');
+      card.className = 'goal-card';
+      const name = document.createElement('div');
+      name.className = 'gname';
+      name.textContent = String(g.name || 'Tujuan');
+      const remove = document.createElement('button');
+      remove.className = 'del-btn';
+      remove.dataset.goalid = String(g.id);
+      remove.textContent = 'HAPUS';
+      name.appendChild(remove);
+      const amount = document.createElement('div');
+      amount.className = 'gamount';
+      amount.textContent = formatRupiah(saved) + ' / ' + formatRupiah(g.targetAmount) + ' (' + pct + '%)';
+      const track = document.createElement('div');
+      track.className = 'bar-track';
+      const fill = document.createElement('div');
+      fill.className = 'bar-fill goal';
+      fill.style.width = pct + '%';
+      track.appendChild(fill);
+      card.append(name, amount, track);
+      if(deadlineText){
+        const deadline = document.createElement('div');
+        deadline.className = 'gdeadline';
+        deadline.textContent = deadlineText;
+        card.appendChild(deadline);
+      }
+      if(suggestText){
+        const suggestion = document.createElement('div');
+        suggestion.className = 'gsuggest';
+        suggestion.textContent = suggestText;
+        card.appendChild(suggestion);
+      }
+      goalsListEl.appendChild(card);
+    });
+  }
+
+  function computeAccountRunningBalances(accountId){
+    const relevant = entries.filter(e => e.accountId === accountId || e.toAccountId === accountId).sort((a,b) => a.ts - b.ts);
+    const map = {};
+    let running = 0;
+    relevant.forEach(e => {
+      if(e.type === 'payment'){
+        if(e.accountId === accountId) running -= e.amount;
+        if(e.toAccountId === accountId) running -= e.amount;
+      } else if(e.type === 'transfer'){
+        if(e.accountId === accountId) running -= e.amount;
+        if(e.toAccountId === accountId) running += e.amount;
+      } else if(e.type === 'saving'){
+        running -= e.amount;
+      } else if(e.type === 'withdraw_goal'){
+        running += e.amount;
+      } else {
+        const acc = accounts.find(a => a.id === e.accountId);
+        if(acc && acc.type === 'credit'){
+          running += (e.type === 'outcome' ? e.amount : -e.amount);
+        } else {
+          running += (e.type === 'income' ? e.amount : -e.amount);
+        }
+      }
+      map[e.id] = running;
+    });
+    return map;
+  }
+
+  function populateFilterOptions(){
+    const currentAcc = accountFilterEl.value;
+    accountFilterEl.innerHTML = '';
+    appendOption(accountFilterEl, '', 'Semua Akun');
+    accounts.forEach(a => appendOption(accountFilterEl, a.id, a.name));
+    if(accounts.some(a => a.id === currentAcc)) accountFilterEl.value = currentAcc;
+
+    const currentCat = categoryFilterEl.value;
+    const cats = [...new Set(entries.map(e => e.category))].sort();
+    categoryFilterEl.innerHTML = '';
+    appendOption(categoryFilterEl, '', 'Semua Kategori');
+    cats.forEach(c => appendOption(categoryFilterEl, c, c));
+    if(cats.includes(currentCat)) categoryFilterEl.value = currentCat;
+  }
+
+  function getFilteredEntries(){
+    const month = monthFilterEl.value;
+    const accId = accountFilterEl.value;
+    const cat = categoryFilterEl.value;
+    const search = searchInputEl.value.trim().toLowerCase();
+    return entries.filter(e => {
+      if(month){
+        const d = new Date(e.ts);
+        const ym = d.getFullYear() + '-' + String(d.getMonth()+1).padStart(2,'0');
+        if(ym !== month) return false;
+      }
+      if(accId && e.accountId !== accId && e.toAccountId !== accId) return false;
+      if(cat && e.category !== cat) return false;
+      if(search && !e.desc.toLowerCase().includes(search)) return false;
+      return true;
+    });
+  }
+
+  function render(){
+    const balances = computeBalances();
+    const goalsSaved = computeGoalsSaved();
+    renderAccountChips(balances);
+    renderManageList();
+    renderAiSummary();
+    renderGoals();
+    populateFilterOptions();
+
+    const filtered = getFilteredEntries();
+    const accFilterActive = accountFilterEl.value;
+    const runningMap = accFilterActive ? computeAccountRunningBalances(accFilterActive) : null;
+
+    if(entries.length === 0){
+      listEl.innerHTML = '';
+      listEl.appendChild(emptyEl);
+      emptyEl.style.display = 'block';
+    } else if(filtered.length === 0){
+      listEl.innerHTML = '<div class="empty"><span class="empty-icon">&#128269;</span>Tidak ada transaksi yang cocok dengan filter/pencarian ini.</div>';
+    } else {
+      emptyEl.style.display = 'none';
+      listEl.innerHTML = '';
+      if(accFilterActive){
+        const accName = (accounts.find(a => a.id === accFilterActive) || {}).name || '';
+        const note = document.createElement('div');
+        note.className = 'mutation-note';
+        note.textContent = 'Menampilkan mutasi saldo untuk ' + accName + ' (kolom kanan = saldo berjalan setelah transaksi ini).';
+        listEl.appendChild(note);
+      }
+      const sorted = [...filtered].sort((a,b) => b.ts - a.ts);
+      let lastDay = null;
+      for(const e of sorted){
+        const d = new Date(e.ts);
+        const dayKey = d.toLocaleDateString('id-ID', { weekday:'long', day:'numeric', month:'long' });
+        if(dayKey !== lastDay){
+          const dayLabel = document.createElement('div');
+          dayLabel.className = 'day-label';
+          dayLabel.textContent = dayKey;
+          listEl.appendChild(dayLabel);
+          lastDay = dayKey;
+        }
+        const row = document.createElement('div');
+        row.className = 'entry';
+        const time = d.toLocaleTimeString('id-ID', { hour:'2-digit', minute:'2-digit' });
+        const acc = accounts.find(a => a.id === e.accountId);
+        const accName = acc ? acc.name : '?';
+        const toAcc = e.toAccountId ? accounts.find(a => a.id === e.toAccountId) : null;
+        const goalObj = e.goalId ? goals.find(g => g.id === e.goalId) : null;
+        let accLabel = accName;
+        if((e.type === 'payment' || e.type === 'transfer') && toAcc) accLabel = accName + ' \u2192 ' + toAcc.name;
+        if(e.type === 'saving' && goalObj) accLabel = accName + ' \u2192 ' + goalObj.name;
+        if(e.type === 'withdraw_goal' && goalObj) accLabel = goalObj.name + ' \u2192 ' + accName;
+        const sign = (e.type === 'outcome' || e.type === 'saving') ? '-' : ((e.type === 'payment' || e.type === 'transfer') ? '\u2212' : '+');
+        const mutationHtml = runningMap ? `<div class="meta" style="margin-top:2px;">Saldo: ${formatRupiah(runningMap[e.id])}</div>` : '';
+        row.innerHTML = `
+          <div>
+            <div class="desc">${escapeHtml(e.desc)}</div>
+            <div class="meta">${time}</div>
+            <div class="tags">
+              <span class="tag ${e.type}">${escapeHtml(e.category)}</span>
+              <span class="tag acc">${escapeHtml(accLabel)}</span>
+            </div>
+            ${mutationHtml}
+          </div>
+          <div class="amount ${e.type}">${sign}${formatRupiah(e.amount)}</div>
+          <div style="display:flex; flex-direction:column; gap:4px;">
+            <button class="void-btn" data-id="${e.id}" data-action="edit" title="Edit transaksi">EDIT</button>
+            <button class="void-btn" data-id="${e.id}" data-action="delete" title="Hapus transaksi">HAPUS</button>
+          </div>
+        `;
+        listEl.appendChild(row);
+      }
+    }
+
+    const totalIncome = entries.filter(e => e.type === 'income').reduce((s,e) => s + e.amount, 0);
+    const totalOutcome = entries.filter(e => e.type === 'outcome').reduce((s,e) => s + e.amount, 0);
+    const totalDebt = accounts.filter(a => a.type === 'credit').reduce((s,a) => s + (balances[a.id] || 0), 0);
+    const totalWallet = accounts.filter(a => a.type === 'wallet').reduce((s,a) => s + (balances[a.id] || 0), 0);
+    const totalGoalSaved = Object.values(goalsSaved).reduce((s,v) => s + v, 0);
+    const netWorth = totalWallet - totalDebt + totalGoalSaved;
+
+    totalIncomeEl.textContent = formatRupiah(totalIncome);
+    totalOutcomeEl.textContent = formatRupiah(totalOutcome);
+    totalDebtEl.textContent = formatRupiah(totalDebt);
+    totalGoalSavedEl.textContent = formatRupiah(totalGoalSaved);
+    totalBalanceEl.textContent = formatRupiah(netWorth);
+    const netWorthClass = netWorth < 0 ? 'negative' : (netWorth > 0 ? 'positive' : '');
+    balanceStampEl.innerHTML = '<span class="stamp-tag">Saldo</span><span class="stamp-amount ' + netWorthClass + '">' + formatRupiah(netWorth) + '</span>';
+
+    qsTransaksiEl.textContent = entries.length;
+    qsAkunEl.textContent = accounts.length;
+    qsTujuanEl.textContent = goals.length;
+  }
+
+  async function saveAccounts(){
+    if(isGuest) return true;
+    try{ await kvSet(ACC_KEY, accounts); return true; }
+    catch(err){
+      console.error('Gagal menyimpan akun:', err);
+      setFeedback('Gagal menyimpan akun. Periksa koneksi lalu coba lagi.', 'hero-feedback outcome');
+      return false;
+    }
+  }
+  async function saveEntries(){
+    if(isGuest) return true;
+    try{ await kvSet(ENTRY_KEY, entries); return true; }
+    catch(err){
+      console.error('Gagal menyimpan transaksi:', err);
+      setFeedback('Gagal menyimpan transaksi. Periksa koneksi lalu coba lagi.', 'hero-feedback outcome');
+      return false;
+    }
+  }
+  async function saveBudget(){
+    if(isGuest) return true;
+    try{ await kvSet(BUDGET_KEY, budget); return true; }
+    catch(err){
+      console.error('Gagal menyimpan anggaran:', err);
+      setFeedback('Gagal menyimpan anggaran. Periksa koneksi lalu coba lagi.', 'hero-feedback outcome');
+      return false;
+    }
+  }
+  async function saveGoals(){
+    if(isGuest) return true;
+    try{ await kvSet(GOALS_KEY, goals); return true; }
+    catch(err){
+      console.error('Gagal menyimpan tujuan:', err);
+      setFeedback('Gagal menyimpan tujuan. Periksa koneksi lalu coba lagi.', 'hero-feedback outcome');
+      return false;
+    }
+  }
+  async function saveSettings(){
+    if(isGuest) return true;
+    try{ await kvSet(SETTINGS_KEY, settings); return true; }
+    catch(err){
+      console.error('Gagal menyimpan pengaturan:', err);
+      setFeedback('Gagal menyimpan pengaturan. Periksa koneksi lalu coba lagi.', 'hero-feedback outcome');
+      return false;
+    }
+  }
+
+  async function loadData(){
+    try{
+      const accResult = await kvGet(ACC_KEY);
+      accounts = accResult && accResult.length ? accResult : defaultAccounts();
+    }catch(err){
+      accounts = defaultAccounts();
+    }
+    if(!accounts || accounts.length === 0) accounts = defaultAccounts();
+    await saveAccounts();
+
+    try{
+      const entResult = await kvGet(ENTRY_KEY);
+      entries = Array.isArray(entResult) ? entResult : [];
+    }catch(err){
+      entries = [];
+    }
+    const fallbackWallet = accounts.find(a => a.type === 'wallet') || accounts[0];
+    let migrated = false;
+    entries.forEach(e => {
+      if(!e.accountId){ e.accountId = fallbackWallet.id; migrated = true; }
+    });
+    if(migrated) await saveEntries();
+
+    try{
+      const budgetResult = await kvGet(BUDGET_KEY);
+      budget = budgetResult && typeof budgetResult === 'object' ? budgetResult : { monthly: null, categories: {} };
+    }catch(err){
+      budget = { monthly: null, categories: {} };
+    }
+    if(!budget.categories) budget.categories = {};
+
+    try{
+      const goalsResult = await kvGet(GOALS_KEY);
+      goals = Array.isArray(goalsResult) ? goalsResult : [];
+    }catch(err){
+      goals = [];
+    }
+
+    try{
+      const settingsResult = await kvGet(SETTINGS_KEY);
+      settings = settingsResult && typeof settingsResult === 'object' ? Object.assign({ darkMode: true, budgetWarnPct: 70 }, settingsResult) : { darkMode: true, budgetWarnPct: 70 };
+    }catch(err){
+      settings = { darkMode: true, budgetWarnPct: 70 };
+    }
+    document.body.classList.toggle('dark', !!settings.darkMode);
+    toggleDarkModeBtn.innerHTML = settings.darkMode ? '&#9788; terang' : '&#9789; gelap';
+    if(budgetWarnPctInputEl) budgetWarnPctInputEl.value = settings.budgetWarnPct;
+
+    splitParticipants = [
+      { id: uid('sp_'), name: '', subtotal: '' },
+      { id: uid('sp_'), name: '', subtotal: '' }
+    ];
+
+    renderCatBudgetInputs();
+    render();
+    renderSplitParticipants();
+    renderSplitBreakdown();
+  }
+
+  let feedbackTimer = null;
+  function setFeedback(text, cls){
+    feedbackEl.textContent = text;
+    feedbackEl.className = cls;
+    feedbackEl.classList.add('show');
+    clearTimeout(feedbackTimer);
+    feedbackTimer = setTimeout(() => { feedbackEl.classList.remove('show'); }, 4500);
+  }
+
+  async function finalizeEntry(parsed){
+    const entry = {
+      id: uid('e'),
+      ts: parsed.ts || Date.now(),
+      desc: parsed.desc,
+      amount: parsed.amount,
+      type: parsed.type,
+      category: parsed.category,
+      accountId: parsed.accountId,
+    };
+    if(parsed.toAccountId) entry.toAccountId = parsed.toAccountId;
+    if(parsed.goalId) entry.goalId = parsed.goalId;
+    entries.push(entry);
+    const saved = await saveEntries();
+    render();
+    if(!saved){
+      closeClarify();
+      return;
+    }
+    const accName = (accounts.find(a => a.id === parsed.accountId) || {}).name || '';
+    if(entry.type === 'payment'){
+      const toName = (accounts.find(a => a.id === parsed.toAccountId) || {}).name || '';
+      setFeedback('Tercatat: bayar ' + formatRupiah(entry.amount) + ' dari ' + accName + ' ke ' + toName, 'hero-feedback payment');
+    } else if(entry.type === 'transfer'){
+      const toName = (accounts.find(a => a.id === parsed.toAccountId) || {}).name || '';
+      setFeedback('Tercatat: transfer ' + formatRupiah(entry.amount) + ' dari ' + accName + ' ke ' + toName, 'hero-feedback payment');
+    } else if(entry.type === 'saving'){
+      const goalName = (goals.find(g => g.id === parsed.goalId) || {}).name || '';
+      setFeedback('Tercatat: nabung ' + formatRupiah(entry.amount) + ' dari ' + accName + ' ke ' + goalName, 'hero-feedback saving');
+    } else if(entry.type === 'withdraw_goal'){
+      const goalName = (goals.find(g => g.id === parsed.goalId) || {}).name || '';
+      setFeedback('Tercatat: ambil ' + formatRupiah(entry.amount) + ' dari ' + goalName + ' ke ' + accName, 'hero-feedback saving');
+    } else {
+      setFeedback((entry.type === 'income' ? 'Tercatat: +' : 'Tercatat: -') + formatRupiah(entry.amount) + ' \u00b7 ' + entry.category + (accName ? (' \u00b7 ' + accName) : ''), 'hero-feedback ' + entry.type);
+    }
+    closeClarify();
+  }
+
+  function openClarify(question, options){
+    clarifyQuestionEl.textContent = question;
+    clarifyOptionsEl.innerHTML = '';
+    options.forEach(item => {
+      const btn = document.createElement('button');
+      btn.className = 'opt';
+      btn.textContent = item.name;
+      btn.setAttribute('data-id', item.id);
+      clarifyOptionsEl.appendChild(btn);
+    });
+    clarifyEl.classList.add('open');
+    feedbackEl.textContent = '';
+    feedbackEl.classList.remove('show');
+    clearTimeout(feedbackTimer);
+  }
+
+  function closeClarify(){
+    clarifyEl.classList.remove('open');
+    pending = null;
+  }
+
+  function handleClarifyChoice(id){
+    if(!pending) return;
+    if(pending.type === 'payment'){
+      if(!pending.toAccountId){
+        pending.toAccountId = id;
+        const target = accounts.find(a => a.id === id);
+        pending.desc = 'Bayar Tagihan ' + (target ? target.name : '');
+        const walletAccounts = accounts.filter(a => a.type === 'wallet');
+        if(!pending.accountId){
+          if(walletAccounts.length === 1){ pending.accountId = walletAccounts[0].id; finalizeEntry(pending); }
+          else { openClarify('Bayar tagihannya dari akun mana?', walletAccounts); }
+          return;
+        }
+        finalizeEntry(pending);
+        return;
+      }
+      if(!pending.accountId){ pending.accountId = id; finalizeEntry(pending); return; }
+    } else if(pending.type === 'saving' || pending.type === 'withdraw_goal'){
+      if(!pending.goalId){
+        pending.goalId = id;
+        const g = goals.find(x => x.id === id);
+        pending.desc = (pending.type === 'saving' ? 'Nabung ke ' : 'Ambil dari ') + (g ? g.name : '');
+        const walletAccounts = accounts.filter(a => a.type === 'wallet');
+        if(!pending.accountId){
+          if(walletAccounts.length === 1){ pending.accountId = walletAccounts[0].id; finalizeEntry(pending); }
+          else { openClarify(pending.type === 'saving' ? 'Uangnya diambil dari akun mana?' : 'Dana masuk ke akun mana?', walletAccounts); }
+          return;
+        }
+        finalizeEntry(pending);
+        return;
+      }
+      if(!pending.accountId){ pending.accountId = id; finalizeEntry(pending); return; }
+    } else if(pending.type === 'transfer'){
+      if(!pending.accountId){
+        pending.accountId = id;
+        if(!pending.toAccountId){
+          const walletAccounts = accounts.filter(a => a.type === 'wallet' && a.id !== id);
+          openClarify('Transfer ini ke akun mana?', walletAccounts);
+          return;
+        }
+        finalizeEntry(pending);
+        return;
+      }
+      if(!pending.toAccountId){
+        pending.toAccountId = id;
+        const target = accounts.find(a => a.id === id);
+        pending.desc = 'Transfer ke ' + (target ? target.name : '');
+        finalizeEntry(pending);
+        return;
+      }
+    } else {
+      pending.accountId = id;
+      finalizeEntry(pending);
+    }
+  }
+
+  function addEntry(raw){
+    const parsed = parseInput(raw);
+    if(!parsed){
+      setFeedback('Nominal tidak terdeteksi. Sertakan angka, contoh: "beli kopi 25000".', 'hero-feedback outcome');
+      return;
+    }
+    if(parsed.type === 'payment'){
+      if(!parsed.toAccountId){
+        pending = parsed;
+        openClarify('Bayar tagihan ke kartu kredit yang mana?', accounts.filter(a => a.type === 'credit'));
+        return;
+      }
+      if(!parsed.accountId){
+        pending = parsed;
+        openClarify('Bayar tagihannya dari akun mana?', accounts.filter(a => a.type === 'wallet'));
+        return;
+      }
+      finalizeEntry(parsed);
+      return;
+    }
+    if(parsed.type === 'transfer'){
+      const walletAccounts = accounts.filter(a => a.type === 'wallet');
+      if(walletAccounts.length < 2){
+        setFeedback('Transfer butuh minimal 2 akun tunai/debit. Tambah akun dulu lewat menu Kelola Akun.', 'hero-feedback outcome');
+        return;
+      }
+      if(!parsed.accountId){
+        pending = parsed;
+        openClarify('Transfer ini dari akun mana?', walletAccounts);
+        return;
+      }
+      if(!parsed.toAccountId){
+        pending = parsed;
+        openClarify('Transfer ini ke akun mana?', walletAccounts.filter(a => a.id !== parsed.accountId));
+        return;
+      }
+      if(parsed.accountId === parsed.toAccountId){
+        setFeedback('Akun asal dan tujuan transfer tidak boleh sama.', 'hero-feedback outcome');
+        return;
+      }
+      finalizeEntry(parsed);
+      return;
+    }
+    if(parsed.type === 'saving' || parsed.type === 'withdraw_goal'){
+      if(goals.length === 0){
+        setFeedback('Belum ada Rencana Dana. Tambah tujuan dulu lewat panel Rencana Dana.', 'hero-feedback outcome');
+        return;
+      }
+      if(!parsed.goalId){
+        pending = parsed;
+        openClarify(parsed.type === 'saving' ? 'Nabung ini masuk ke tujuan yang mana?' : 'Dana ini diambil dari tujuan yang mana?', goals);
+        return;
+      }
+      if(!parsed.accountId){
+        pending = parsed;
+        openClarify(parsed.type === 'saving' ? 'Uangnya diambil dari akun mana?' : 'Dana masuk ke akun mana?', accounts.filter(a => a.type === 'wallet'));
+        return;
+      }
+      finalizeEntry(parsed);
+      return;
+    }
+    if(!parsed.accountId){
+      pending = parsed;
+      openClarify('Transaksi ini pakai metode pembayaran apa?', accounts);
+      return;
+    }
+    finalizeEntry(parsed);
+  }
+
+  function removeEntry(id){
+    const entry = entries.find(e => e.id === id);
+    const label = entry ? (entry.desc + ' (' + formatRupiah(entry.amount) + ')') : 'transaksi ini';
+    const ok = window.confirm('Hapus ' + label + '? Tindakan ini tidak bisa dibatalkan.');
+    if(!ok) return;
+    entries = entries.filter(e => e.id !== id);
+    saveEntries();
+    render();
+  }
+
+  function toDatetimeLocalValue(ts){
+    const d = new Date(ts);
+    const pad = n => String(n).padStart(2, '0');
+    return d.getFullYear() + '-' + pad(d.getMonth()+1) + '-' + pad(d.getDate()) + 'T' + pad(d.getHours()) + ':' + pad(d.getMinutes());
+  }
+
+  function openEditEntry(id){
+    const entry = entries.find(e => e.id === id);
+    if(!entry) return;
+    editingEntryId = id;
+    editEntryDateEl.value = toDatetimeLocalValue(entry.ts);
+    editEntryDescEl.value = entry.desc;
+    editEntryAmountEl.value = entry.amount;
+    const isPlainCategory = (entry.type === 'income' || entry.type === 'outcome');
+    editEntryCatEl.style.display = isPlainCategory ? '' : 'none';
+    editEntryCatLabelEl.style.display = isPlainCategory ? '' : 'none';
+    editEntryCatEl.value = entry.category;
+    editEntryModalOverlayEl.classList.add('open');
+  }
+
+  function saveEditedEntry(){
+    const entry = entries.find(e => e.id === editingEntryId);
+    if(!entry) return;
+    const newTs = new Date(editEntryDateEl.value).getTime();
+    const newDesc = editEntryDescEl.value.trim();
+    const newAmount = parseFloat(editEntryAmountEl.value);
+    if(isNaN(newTs) || !newDesc || isNaN(newAmount) || newAmount <= 0){
+      window.alert('Isi tanggal, deskripsi, dan nominal dengan benar.');
+      return;
+    }
+    entry.ts = newTs;
+    entry.desc = newDesc;
+    entry.amount = newAmount;
+    if(entry.type === 'income' || entry.type === 'outcome'){
+      const newCat = editEntryCatEl.value.trim();
+      if(newCat) entry.category = newCat;
+    }
+    saveEntries();
+    render();
+    editEntryModalOverlayEl.classList.remove('open');
+    setFeedback('Transaksi berhasil diperbarui.', 'hero-feedback payment');
+  }
+
+  function addAccount(name, type){
+    const acc = { id: uid('acc_'), name, type };
+    accounts.push(acc);
+    saveAccounts();
+    render();
+  }
+
+  function removeAccount(id){
+    const acc = accounts.find(a => a.id === id);
+    if(acc && acc.type === 'credit'){
+      setFeedback('Akun kartu kredit dikunci dan tidak bisa dihapus.', 'hero-feedback outcome');
+      return;
+    }
+    const hasEntries = entries.some(e => e.accountId === id || e.toAccountId === id);
+    if(hasEntries){
+      const ok = window.confirm('Akun ini punya transaksi terkait. Menghapus akun juga akan menghapus semua transaksi terkait. Lanjutkan?');
+      if(!ok) return;
+      entries = entries.filter(e => e.accountId !== id && e.toAccountId !== id);
+      saveEntries();
+    }
+    accounts = accounts.filter(a => a.id !== id);
+    saveAccounts();
+    render();
+  }
+
+  function addGoal(name, targetAmount, targetDate){
+    const g = { id: uid('goal_'), name, targetAmount, targetDate: targetDate || null };
+    goals.push(g);
+    saveGoals();
+    render();
+  }
+
+  function removeGoal(id){
+    const hasEntries = entries.some(e => e.goalId === id);
+    if(hasEntries){
+      const ok = window.confirm('Tujuan ini punya riwayat nabung/tarik. Menghapus tujuan juga akan menghapus transaksi terkait. Lanjutkan?');
+      if(!ok) return;
+      entries = entries.filter(e => e.goalId !== id);
+      saveEntries();
+    }
+    goals = goals.filter(g => g.id !== id);
+    saveGoals();
+    render();
+  }
+
+  // ---- Split Bill ----
+  function renderSplitParticipants(){
+    splitParticipantsListEl.innerHTML = '';
+    splitParticipants.forEach((p, idx) => {
+      const row = document.createElement('div');
+      row.className = 'split-row';
+      const nameInput = document.createElement('input');
+      nameInput.type = 'text';
+      nameInput.className = 'split-name';
+      nameInput.dataset.id = String(p.id);
+      nameInput.value = String(p.name || '');
+      nameInput.placeholder = 'Nama orang ' + (idx + 1);
+      const amountInput = document.createElement('input');
+      amountInput.type = 'number';
+      amountInput.className = 'split-amt';
+      amountInput.dataset.id = String(p.id);
+      amountInput.value = String(p.subtotal || '');
+      amountInput.placeholder = 'Subtotal Rp';
+      amountInput.min = '0';
+      const remove = document.createElement('button');
+      remove.className = 'del-btn split-del';
+      remove.dataset.id = String(p.id);
+      remove.textContent = 'HAPUS';
+      row.append(nameInput, amountInput, remove);
+      splitParticipantsListEl.appendChild(row);
+    });
+  }
+
+  function computeSplit(){
+    const taxPct = parseFloat(taxPctInputEl.value) || 0;
+    const servicePct = parseFloat(servicePctInputEl.value) || 0;
+    const subtotalSum = splitParticipants.reduce((s,p) => s + (parseFloat(p.subtotal) || 0), 0);
+    const taxAmt = subtotalSum * taxPct / 100;
+    const serviceAmt = subtotalSum * servicePct / 100;
+    const grandTotal = subtotalSum + taxAmt + serviceAmt;
+    const shares = splitParticipants.map(p => {
+      const sub = parseFloat(p.subtotal) || 0;
+      const ratio = subtotalSum > 0 ? sub / subtotalSum : 0;
+      const theirTax = taxAmt * ratio;
+      const theirService = serviceAmt * ratio;
+      return { name: p.name.trim() || 'Tanpa nama', sub, tax: theirTax, service: theirService, total: sub + theirTax + theirService };
+    });
+    return { subtotalSum, taxAmt, serviceAmt, grandTotal, shares, taxPct, servicePct };
+  }
+
+  function renderSplitBreakdown(){
+    const r = computeSplit();
+    let html = '';
+    r.shares.forEach(s => {
+      html += `<div class="sb-person"><span>${escapeHtml(s.name)}<div class="sb-detail">Subtotal ${formatRupiah(s.sub)} + pajak/service ${formatRupiah(s.tax + s.service)}</div></span><span>${formatRupiah(s.total)}</span></div>`;
+    });
+    html += `<div class="sb-total"><span>Total (${formatRupiah(r.subtotalSum)} + pajak ${r.taxPct}% + service ${r.servicePct}%)</span><span>${formatRupiah(r.grandTotal)}</span></div>`;
+    splitBreakdownEl.innerHTML = html;
+
+    let pr = `<div class="pr-title">IOT SPLIT BILL</div><div class="pr-sub">${new Date().toLocaleDateString('id-ID',{day:'numeric',month:'long',year:'numeric'})}</div><div class="pr-line"></div>`;
+    r.shares.forEach(s => {
+      pr += `<div class="pr-row"><span>${escapeHtml(s.name)}</span><span>${formatRupiah(s.total)}</span></div>`;
+    });
+    pr += `<div class="pr-line"></div><div class="pr-row"><span>Subtotal</span><span>${formatRupiah(r.subtotalSum)}</span></div>`;
+    pr += `<div class="pr-row"><span>Pajak (${r.taxPct}%)</span><span>${formatRupiah(r.taxAmt)}</span></div>`;
+    pr += `<div class="pr-row"><span>Service (${r.servicePct}%)</span><span>${formatRupiah(r.serviceAmt)}</span></div>`;
+    pr += `<div class="pr-line"></div><div class="pr-row pr-total"><span>TOTAL</span><span>${formatRupiah(r.grandTotal)}</span></div>`;
+    printReceiptEl.innerHTML = pr;
+  }
+
+  addParticipantBtn.addEventListener('click', () => {
+    splitParticipants.push({ id: uid('sp_'), name: '', subtotal: '' });
+    renderSplitParticipants();
+    renderSplitBreakdown();
+  });
+
+  splitParticipantsListEl.addEventListener('input', (e) => {
+    const id = e.target.getAttribute('data-id');
+    if(!id) return;
+    const p = splitParticipants.find(x => x.id === id);
+    if(!p) return;
+    if(e.target.classList.contains('split-name')) p.name = e.target.value;
+    if(e.target.classList.contains('split-amt')) p.subtotal = e.target.value;
+    renderSplitBreakdown();
+  });
+
+  splitParticipantsListEl.addEventListener('click', (e) => {
+    const btn = e.target.closest('.split-del');
+    if(!btn) return;
+    const id = btn.getAttribute('data-id');
+    splitParticipants = splitParticipants.filter(p => p.id !== id);
+    renderSplitParticipants();
+    renderSplitBreakdown();
+  });
+
+  taxPctInputEl.addEventListener('input', renderSplitBreakdown);
+  servicePctInputEl.addEventListener('input', renderSplitBreakdown);
+
+  printSplitBtn.addEventListener('click', () => { window.print(); });
+
+  recordSplitBtn.addEventListener('click', () => {
+    const r = computeSplit();
+    if(r.grandTotal <= 0){
+      setFeedback('Isi dulu subtotal split bill sebelum dicatat.', 'hero-feedback outcome');
+      return;
+    }
+    const names = splitParticipants.map(p => p.name.trim()).filter(Boolean).join(', ');
+    pending = {
+      type: 'outcome',
+      amount: Math.round(r.grandTotal),
+      category: 'Split Bill',
+      desc: 'Split Bill' + (names ? (' - ' + names) : ''),
+      accountId: null
+    };
+    openClarify('Split bill ini dibayar pakai akun apa?', accounts);
+  });
+
+  // ---- Export / Import backup ----
+  function exportData(){
+    const payload = { accounts, entries, budget, goals, exportedAt: new Date().toISOString(), appVersion: 'v0.8' };
+    const blob = new Blob([JSON.stringify(payload, null, 2)], { type: 'application/json' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = 'iot-backup-' + new Date().toISOString().slice(0,10) + '.json';
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+    URL.revokeObjectURL(url);
+  }
+
+  function validateImportPayload(payload){
+    const errors = [];
+    const validAccTypes = ['wallet', 'credit'];
+    const validEntryTypes = ['income', 'outcome', 'payment', 'transfer', 'saving', 'withdraw_goal'];
+
+    if(!payload || typeof payload !== 'object') return ['File bukan format data yang valid.'];
+
+    const accs = Array.isArray(payload.accounts) ? payload.accounts : [];
+    const accIds = new Set();
+    accs.forEach((a, i) => {
+      if(!a || !isValidImportedId(a.id, 'acc_') || typeof a.name !== 'string' || !validAccTypes.includes(a.type) || accIds.has(a.id)){
+        errors.push('Akun ke-' + (i+1) + ' formatnya tidak valid.');
+      } else accIds.add(a.id);
+    });
+
+    const goalIds = new Set();
+    if(payload.goals !== undefined){
+      if(!Array.isArray(payload.goals)) errors.push('Data "goals" harus berupa daftar.');
+      else payload.goals.forEach((g, i) => {
+        if(!g || !isValidImportedId(g.id, 'goal_') || typeof g.name !== 'string' || typeof g.targetAmount !== 'number' || g.targetAmount < 0 || goalIds.has(g.id)){
+          errors.push('Tujuan dana ke-' + (i+1) + ' formatnya tidak valid.');
+        } else goalIds.add(g.id);
+      });
+    }
+
+    if(payload.entries !== undefined){
+      if(!Array.isArray(payload.entries)) errors.push('Data "entries" harus berupa daftar.');
+      else {
+        const entryIds = new Set();
+        payload.entries.forEach((e, i) => {
+        if(!e || !isValidImportedId(e.id, 'e') || typeof e.ts !== 'number' || typeof e.amount !== 'number' || e.amount < 0 ||
+           !validEntryTypes.includes(e.type) || typeof e.category !== 'string' || typeof e.desc !== 'string' ||
+           typeof e.accountId !== 'string' || !isValidImportedId(e.accountId, 'acc_') || !accIds.has(e.accountId) || entryIds.has(e.id)){
+          errors.push('Transaksi ke-' + (i+1) + ' formatnya tidak valid.');
+        } else if(e.toAccountId !== undefined && (!isValidImportedId(e.toAccountId, 'acc_') || !accIds.has(e.toAccountId))){
+          errors.push('Transaksi ke-' + (i+1) + ' merujuk akun tujuan yang tidak valid.');
+        } else if(e.goalId !== undefined && (!isValidImportedId(e.goalId, 'goal_') || !goalIds.has(e.goalId))){
+          errors.push('Transaksi ke-' + (i+1) + ' merujuk tujuan dana yang tidak valid.');
+        }
+        entryIds.add(e && e.id);
+        });
+      }
+    }
+
+    if(payload.budget !== undefined){
+      if(typeof payload.budget !== 'object' || payload.budget === null){
+        errors.push('Data "budget" formatnya tidak valid.');
+      } else if(payload.budget.monthly !== null && payload.budget.monthly !== undefined && typeof payload.budget.monthly !== 'number'){
+        errors.push('Anggaran bulanan harus berupa angka atau kosong.');
+      }
+    }
+
+    return errors;
+  }
+
+  function isValidImportedId(id, prefix){
+    return typeof id === 'string' && id.startsWith(prefix) && id.slice(prefix.length).length > 0 && /^[A-Za-z0-9_-]+$/.test(id.slice(prefix.length));
+  }
+
+  function importDataFromFile(file){
+    const reader = new FileReader();
+    reader.onload = async () => {
+      let payload;
+      try{
+        payload = JSON.parse(reader.result);
+      }catch(err){
+        window.alert('File bukan JSON yang valid.');
+        return;
+      }
+      const errors = validateImportPayload(payload);
+      if(errors.length > 0){
+        window.alert('File ditolak, ada ' + errors.length + ' masalah:\n\n' + errors.slice(0, 8).join('\n') + (errors.length > 8 ? '\n...dan lainnya' : ''));
+        return;
+      }
+      const ok = window.confirm('Impor data ini akan menimpa data yang ada sekarang. Lanjutkan?');
+      if(!ok) return;
+      const previousState = { accounts, entries, budget, goals };
+      accounts = Array.isArray(payload.accounts) && payload.accounts.length ? payload.accounts : defaultAccounts();
+      entries = Array.isArray(payload.entries) ? payload.entries : [];
+      budget = payload.budget && typeof payload.budget === 'object' ? payload.budget : { monthly: null, categories: {} };
+      if(!budget.categories) budget.categories = {};
+      goals = Array.isArray(payload.goals) ? payload.goals : [];
+      const saved = await Promise.all([saveAccounts(), saveEntries(), saveBudget(), saveGoals()]);
+      if(!saved.every(Boolean)){
+        accounts = previousState.accounts;
+        entries = previousState.entries;
+        budget = previousState.budget;
+        goals = previousState.goals;
+        await Promise.all([saveAccounts(), saveEntries(), saveBudget(), saveGoals()]);
+        renderCatBudgetInputs();
+        render();
+        setFeedback('Impor gagal disimpan. Data sebelumnya tetap digunakan.', 'hero-feedback outcome');
+        return;
+      }
+      renderCatBudgetInputs();
+      render();
+      setFeedback('Data berhasil diimpor.', 'hero-feedback payment');
+    };
+    reader.readAsText(file);
+  }
+
+  inputEl.addEventListener('keydown', (e) => {
+    if(e.key === 'Enter'){
+      const val = inputEl.value;
+      if(val.trim()){ addEntry(val); inputEl.value = ''; }
+    }
+  });
+  sendBtn.addEventListener('click', () => {
+    const val = inputEl.value;
+    if(val.trim()){ addEntry(val); inputEl.value = ''; }
+  });
+
+  listEl.addEventListener('click', (e) => {
+    const btn = e.target.closest('.void-btn');
+    if(!btn) return;
+    const id = btn.getAttribute('data-id');
+    const action = btn.getAttribute('data-action');
+    if(action === 'edit') openEditEntry(id);
+    else removeEntry(id);
+  });
+
+  closeEditEntryModalBtn.addEventListener('click', () => { editEntryModalOverlayEl.classList.remove('open'); });
+  editEntryModalOverlayEl.addEventListener('click', (e) => { if(e.target === editEntryModalOverlayEl) editEntryModalOverlayEl.classList.remove('open'); });
+  saveEditEntryBtn.addEventListener('click', saveEditedEntry);
+  [editEntryDateEl, editEntryDescEl, editEntryAmountEl, editEntryCatEl].forEach(el => {
+    el.addEventListener('keydown', (e) => { if(e.key === 'Enter') saveEditedEntry(); });
+  });
+
+  searchInputEl.addEventListener('input', render);
+  monthFilterEl.addEventListener('change', render);
+  accountFilterEl.addEventListener('change', render);
+  categoryFilterEl.addEventListener('change', render);
+  resetFilterBtn.addEventListener('click', () => {
+    searchInputEl.value = '';
+    monthFilterEl.value = '';
+    accountFilterEl.value = '';
+    categoryFilterEl.value = '';
+    render();
+  });
+
+  closeAccountsModalBtn.addEventListener('click', () => { accountsModalOverlayEl.classList.remove('open'); });
+  accountsModalOverlayEl.addEventListener('click', (e) => { if(e.target === accountsModalOverlayEl) accountsModalOverlayEl.classList.remove('open'); });
+  toggleChangelogBtn.addEventListener('click', () => { changelogPanelEl.classList.toggle('open'); dataPanelEl.classList.remove('open'); });
+  toggleDarkModeBtn.addEventListener('click', () => {
+    settings.darkMode = !settings.darkMode;
+    document.body.classList.toggle('dark', settings.darkMode);
+    toggleDarkModeBtn.innerHTML = settings.darkMode ? '&#9788; terang' : '&#9789; gelap';
+    saveSettings();
+  });
+  toggleDataBtn.addEventListener('click', () => { dataPanelEl.classList.toggle('open'); changelogPanelEl.classList.remove('open'); });
+  toggleBudgetBtn.addEventListener('click', () => { budgetPanelEl.classList.toggle('open'); });
+  toggleMenuBtn.addEventListener('click', (e) => {
+    e.stopPropagation();
+    menuDropdownEl.classList.toggle('open');
+  });
+  menuDropdownEl.addEventListener('click', (e) => {
+    const btn = e.target.closest('button[data-open]');
+    if(!btn) return;
+    const which = btn.getAttribute('data-open');
+    menuDropdownEl.classList.remove('open');
+    if(which === 'accounts') accountsModalOverlayEl.classList.add('open');
+    if(which === 'goals') goalsModalOverlayEl.classList.add('open');
+    if(which === 'split') splitModalOverlayEl.classList.add('open');
+    if(which === 'switch'){
+      const ok = window.confirm('Keluar dari akun ini? Kamu akan diminta login ulang (data yang sudah tersimpan tidak hilang).');
+      if(!ok) return;
+      userId = null;
+      userPassword = null;
+      renderUserBadge();
+      isGuest = false;
+      document.body.classList.remove('guest-mode');
+      guestBannerEl.classList.remove('show');
+      usernameInputEl.value = '';
+      passwordInputEl.value = '';
+      loginErrorEl.textContent = '';
+      loginGateEl.classList.remove('hidden');
+      usernameInputEl.focus();
+    }
+  });
+  document.addEventListener('click', (e) => {
+    if(!menuDropdownEl.contains(e.target) && e.target !== toggleMenuBtn){
+      menuDropdownEl.classList.remove('open');
+    }
+    if(!changelogPanelEl.contains(e.target) && e.target !== toggleChangelogBtn){
+      changelogPanelEl.classList.remove('open');
+    }
+    if(!dataPanelEl.contains(e.target) && e.target !== toggleDataBtn){
+      dataPanelEl.classList.remove('open');
+    }
+  });
+  document.addEventListener('keydown', (e) => {
+    if(e.key !== 'Escape') return;
+    menuDropdownEl.classList.remove('open');
+    changelogPanelEl.classList.remove('open');
+    dataPanelEl.classList.remove('open');
+    splitModalOverlayEl.classList.remove('open');
+    goalsModalOverlayEl.classList.remove('open');
+    accountsModalOverlayEl.classList.remove('open');
+    editEntryModalOverlayEl.classList.remove('open');
+  });
+  closeGoalsModalBtn.addEventListener('click', () => { goalsModalOverlayEl.classList.remove('open'); });
+  goalsModalOverlayEl.addEventListener('click', (e) => { if(e.target === goalsModalOverlayEl) goalsModalOverlayEl.classList.remove('open'); });
+  closeSplitModalBtn.addEventListener('click', () => { splitModalOverlayEl.classList.remove('open'); });
+  splitModalOverlayEl.addEventListener('click', (e) => { if(e.target === splitModalOverlayEl) splitModalOverlayEl.classList.remove('open'); });
+
+  exportDataBtn.addEventListener('click', exportData);
+  importDataInputEl.addEventListener('change', (e) => {
+    const file = e.target.files[0];
+    if(file) importDataFromFile(file);
+    importDataInputEl.value = '';
+  });
+
+  manageListEl.addEventListener('click', (e) => {
+    const btn = e.target.closest('.del-btn');
+    if(btn) removeAccount(btn.getAttribute('data-id'));
+  });
+
+  goalsListEl.addEventListener('click', (e) => {
+    const btn = e.target.closest('.del-btn');
+    if(btn) removeGoal(btn.getAttribute('data-goalid'));
+  });
+
+  addAccBtn.addEventListener('click', () => {
+    const name = newAccNameEl.value.trim();
+    if(!name) return;
+    addAccount(name, newAccTypeEl.value);
+    newAccNameEl.value = '';
+  });
+  newAccNameEl.addEventListener('keydown', (e) => { if(e.key === 'Enter'){ addAccBtn.click(); } });
+
+  addGoalBtn.addEventListener('click', () => {
+    const name = newGoalNameEl.value.trim();
+    const target = parseFloat(newGoalTargetEl.value);
+    if(!name || isNaN(target) || target <= 0) return;
+    addGoal(name, target, newGoalDateEl.value);
+    newGoalNameEl.value = '';
+    newGoalTargetEl.value = '';
+    newGoalDateEl.value = '';
+  });
+
+  clarifyOptionsEl.addEventListener('click', (e) => {
+    const btn = e.target.closest('.opt');
+    if(btn) handleClarifyChoice(btn.getAttribute('data-id'));
+  });
+  clarifyCancelBtn.addEventListener('click', () => {
+    closeClarify();
+    setFeedback('Dibatalkan.', 'hero-feedback outcome');
+  });
+
+  saveBudgetBtn.addEventListener('click', async () => {
+    const monthlyVal = parseFloat(monthlyBudgetInputEl.value);
+    budget.monthly = (!isNaN(monthlyVal) && monthlyVal > 0) ? monthlyVal : null;
+    const catInputs = catBudgetListEl.querySelectorAll('input[data-cat]');
+    const newCatBudgets = {};
+    catInputs.forEach(inp => {
+      const cat = inp.getAttribute('data-cat');
+      const v = parseFloat(inp.value);
+      if(!isNaN(v) && v > 0) newCatBudgets[cat] = v;
+    });
+    budget.categories = newCatBudgets;
+    const warnPct = parseFloat(budgetWarnPctInputEl.value);
+    settings.budgetWarnPct = (!isNaN(warnPct) && warnPct > 0 && warnPct < 100) ? warnPct : 70;
+    const budgetSaved = await saveBudget();
+    const settingsSaved = budgetSaved && await saveSettings();
+    render();
+    if(!budgetSaved || !settingsSaved) return;
+    setFeedback('Anggaran disimpan.', 'hero-feedback payment');
+  });
+
+  todayDateEl.textContent = new Date().toLocaleDateString('id-ID', { weekday:'long', day:'numeric', month:'long', year:'numeric' });
+
+  if(!storageAvailable){
+    storageBannerEl.classList.add('show');
+  }
+
+  usernameInputEl.focus();
+})();
+</script>
+
+</body>
+</html>
+
+
